@@ -57,6 +57,7 @@ func (m *Miner) handlePredictionCreated(
 	balance := streamer.ChannelPoints
 	betSettings := streamer.Settings.Bet
 	username := streamer.Username
+	category := streamer.ResolveCategory()
 	streamer.Mu.RUnlock()
 
 	if !makePredictions || !isOnline {
@@ -96,6 +97,7 @@ func (m *Miner) handlePredictionCreated(
 		m.log.Event(ctx, model.EventBetFilters,
 			"Insufficient points for bet",
 			"streamer", username,
+			"category", category,
 			"balance", balance,
 			"minimum", betSettings.MinimumPoints)
 		return
@@ -108,6 +110,7 @@ func (m *Miner) handlePredictionCreated(
 	m.log.Event(ctx, model.EventBetStart,
 		fmt.Sprintf("Placing bet in %.0fs", secondsUntilClose),
 		"streamer", username,
+		"category", category,
 		"title", event.Title)
 
 	betTimer := time.AfterFunc(time.Duration(secondsUntilClose)*time.Second, func() {
@@ -244,15 +247,18 @@ func (m *Miner) handlePredictionResult(ctx context.Context, event *model.EventPr
 	m.pendingTimersMu.Unlock()
 
 	streamerName := ""
+	streamerCategory := ""
 	if streamer != nil {
 		streamer.Mu.RLock()
 		streamerName = streamer.Username
+		streamerCategory = streamer.ResolveCategory()
 		streamer.Mu.RUnlock()
 	}
 
 	m.log.Event(ctx, notifyEvent,
 		"Prediction result",
 		"streamer", streamerName,
+		"category", streamerCategory,
 		"title", eventTitle,
 		"choice", choiceStr,
 		"result", resultString)

@@ -82,12 +82,14 @@ func (m *Miner) handlePointsEarnedOrSpent(ctx context.Context, msg *model.Messag
 			streamer.Mu.RLock()
 			username := streamer.Username
 			currentBalance := streamer.ChannelPoints
+			category := streamer.ResolveCategory()
 			streamer.Mu.RUnlock()
 
 			event := mapReasonToEvent(reasonCode)
 			m.log.Event(ctx, event,
 				fmt.Sprintf("+%s points", utils.Millify(earned, 2)),
 				"streamer", username,
+				"category", category,
 				"reason", reasonCode,
 				"balance", currentBalance)
 		}
@@ -111,11 +113,13 @@ func (m *Miner) handleClaimAvailable(ctx context.Context, msg *model.Message, st
 
 	streamer.Mu.RLock()
 	username := streamer.Username
+	category := streamer.ResolveCategory()
 	streamer.Mu.RUnlock()
 
 	m.log.Event(ctx, model.EventBonusClaim,
 		"Claiming bonus",
 		"streamer", username,
+		"category", category,
 		"claim_id", claimID)
 
 	if err := m.twitch.ClaimChannelPoints(ctx, streamer, claimID); err != nil {
@@ -158,6 +162,7 @@ func (m *Miner) handleStreamUp(ctx context.Context, streamer *model.Streamer) {
 func (m *Miner) handleStreamDown(ctx context.Context, streamer *model.Streamer) {
 	streamer.Mu.Lock()
 	wasOnline := streamer.IsOnline
+	category := streamer.ResolveCategory()
 	streamer.SetOffline()
 	username := streamer.Username
 	streamer.Mu.Unlock()
@@ -165,7 +170,8 @@ func (m *Miner) handleStreamDown(ctx context.Context, streamer *model.Streamer) 
 	if wasOnline {
 		m.log.Event(ctx, model.EventStreamerOffline,
 			"Stream went offline",
-			"streamer", username)
+			"streamer", username,
+			"category", category)
 	}
 
 	m.updateChatPresence(streamer, false)
@@ -203,6 +209,7 @@ func (m *Miner) handleRaid(ctx context.Context, msg *model.Message, streamer *mo
 	streamer.Mu.RLock()
 	followRaid := streamer.Settings != nil && streamer.Settings.FollowRaid
 	username := streamer.Username
+	category := streamer.ResolveCategory()
 	streamer.Mu.RUnlock()
 
 	if !followRaid {
@@ -224,6 +231,7 @@ func (m *Miner) handleRaid(ctx context.Context, msg *model.Message, streamer *mo
 	m.log.Event(ctx, model.EventJoinRaid,
 		"Joining raid",
 		"streamer", username,
+		"category", category,
 		"target", targetLogin)
 
 	streamer.Mu.Lock()
@@ -252,6 +260,7 @@ func (m *Miner) handleCommunityMoments(ctx context.Context, msg *model.Message, 
 	streamer.Mu.RLock()
 	claimMoments := streamer.Settings != nil && streamer.Settings.ClaimMoments
 	username := streamer.Username
+	category := streamer.ResolveCategory()
 	streamer.Mu.RUnlock()
 
 	if !claimMoments {
@@ -266,6 +275,7 @@ func (m *Miner) handleCommunityMoments(ctx context.Context, msg *model.Message, 
 	m.log.Event(ctx, model.EventMomentClaim,
 		"Claiming moment",
 		"streamer", username,
+		"category", category,
 		"moment_id", momentID)
 
 	if err := m.twitch.ClaimMoment(ctx, momentID); err != nil {

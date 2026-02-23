@@ -36,6 +36,7 @@ func (h *Handler) OnPrivateMessage(msg twitch.PrivateMessage) {
 			context.Background(),
 			model.EventChatMention,
 			"Chat mention detected",
+			"streamer", msg.Channel,
 			"nick", msg.User.DisplayName,
 			"channel", msg.Channel,
 			"message", msg.Message,

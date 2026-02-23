@@ -129,13 +129,26 @@ func (d *Dispatcher) Dispatch(ctx context.Context, event model.Event, title, mes
 }
 
 // NotifyFunc returns a logger.NotifyFunc that dispatches notifications via this Dispatcher.
-// If accountName is non-empty it is appended to the title so each account's
-// notifications are distinguishable.
+// The title is constructed dynamically from the account name and metadata map:
+//   - "accountName | 📺 streamer" when a streamer context exists
+//   - "accountName | 🎮 category" when only a category context exists (e.g. drop claims)
+//   - "accountName" as a plain fallback
+//   - "Twitch Miner" when no account name is available
 func (d *Dispatcher) NotifyFunc(accountName string) logger.NotifyFunc {
-	return func(ctx context.Context, message string, event model.Event) {
-		title := "Twitch Miner"
-		if accountName != "" {
-			title = fmt.Sprintf("[%s]", accountName)
+	return func(ctx context.Context, message string, event model.Event, meta map[string]string) {
+		streamer := meta["streamer"]
+		category := meta["category"]
+
+		var title string
+		switch {
+		case accountName != "" && streamer != "":
+			title = fmt.Sprintf("%s | 📺 %s", accountName, streamer)
+		case accountName != "" && category != "":
+			title = fmt.Sprintf("%s | 🎮 %s", accountName, category)
+		case accountName != "":
+			title = accountName
+		default:
+			title = "Twitch Miner"
 		}
 		d.Dispatch(ctx, event, title, message)
 	}

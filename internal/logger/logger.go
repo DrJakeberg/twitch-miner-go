@@ -17,11 +17,11 @@ import (
 )
 
 var eventEmoji = map[string]string{
-	"GAIN_FOR_WATCH":        "📺",
-	"GAIN_FOR_WATCH_STREAK": "📺",
-	"GAIN_FOR_CLAIM":        "🎁",
-	"GAIN_FOR_RAID":         "🎁",
-	"BONUS_CLAIM":           "💰",
+	"GAIN_FOR_WATCH":        "💵",
+	"GAIN_FOR_WATCH_STREAK": "💵",
+	"GAIN_FOR_CLAIM":        "💵",
+	"GAIN_FOR_RAID":         "💵",
+	"BONUS_CLAIM":           "💵",
 	"BET_START":             "🎰",
 	"BET_WIN":               "🏆",
 	"BET_LOSE":              "💸",
@@ -62,8 +62,10 @@ var coloredAttrKeys = map[string]string{
 }
 
 // NotifyFunc is a callback invoked when a log event matches notification criteria.
+// The meta map carries structured key-value metadata (e.g. "streamer", "category")
+// extracted from the log args so that notification titles can be constructed dynamically.
 // Implementations should be non-blocking.
-type NotifyFunc func(ctx context.Context, message string, event model.Event)
+type NotifyFunc func(ctx context.Context, message string, event model.Event, meta map[string]string)
 
 // Config holds logger configuration options.
 type Config struct {
@@ -153,6 +155,8 @@ func (l *Logger) WithAccount(name string) *Logger {
 
 // Event logs a message at INFO level and dispatches a notification if configured.
 // If the event has a mapped emoji, it is prepended to the log message.
+// The alternating key-value args are parsed into a map[string]string and forwarded
+// to the NotifyFunc so notification providers can build dynamic titles.
 func (l *Logger) Event(ctx context.Context, event model.Event, msg string, args ...any) {
 	if emoji, ok := eventEmoji[string(event)]; ok {
 		msg = emoji + " " + msg
@@ -160,11 +164,29 @@ func (l *Logger) Event(ctx context.Context, event model.Event, msg string, args 
 	l.Logger.Info(msg, append(args, "event", string(event))...)
 
 	if fn, ok := l.notifyFn.Load().(NotifyFunc); ok && fn != nil {
-		formattedMsg := msg
-		if len(args) > 0 {
-			formattedMsg = fmt.Sprintf("%s %v", msg, args)
+		// Build clean args string, excluding streamer and category (shown in title)
+		var parts []string
+		for i := 0; i+1 < len(args); i += 2 {
+			key := fmt.Sprintf("%v", args[i])
+			if key == "streamer" || key == "category" {
+				continue // skip, already in title
+			}
+			parts = append(parts, fmt.Sprintf("%s=%v", key, args[i+1]))
 		}
-		fn(ctx, formattedMsg, event)
+
+		formattedMsg := msg
+		if len(parts) > 0 {
+			formattedMsg = fmt.Sprintf("%s (%s)", msg, strings.Join(parts, ", "))
+		}
+
+		meta := make(map[string]string, len(args)/2)
+		for i := 0; i+1 < len(args); i += 2 {
+			if key, ok := args[i].(string); ok {
+				meta[key] = fmt.Sprintf("%v", args[i+1])
+			}
+		}
+
+		fn(ctx, formattedMsg, event, meta)
 	}
 }
 

@@ -131,8 +131,16 @@ func (c *Client) syncCampaignsWithInventory(ctx context.Context, campaigns []*mo
 								timeDrop.Self.IsClaimed,
 							)
 							if drop.IsClaimable {
-								c.Log.Event(ctx, model.EventDropClaim, "Claiming drop",
-									"drop", drop.String())
+									categoryName := ""
+									if campaigns[i].Game != nil {
+										categoryName = campaigns[i].Game.Slug
+										if categoryName == "" {
+											categoryName = campaigns[i].Game.Name
+										}
+									}
+									c.Log.Event(ctx, model.EventDropClaim, "Claiming drop",
+										"drop", drop.String(),
+										"category", categoryName)
 								claimed, err := c.GQL.ClaimDropRewards(ctx, drop.DropInstanceID)
 								if err != nil {
 									c.Log.Warn("Failed to claim drop",
@@ -179,6 +187,10 @@ func (c *Client) ClaimAllDropsFromInventory(ctx context.Context) error {
 
 	var inventory struct {
 		DropCampaignsInProgress []struct {
+			Game *struct {
+				Name string `json:"name"`
+				Slug string `json:"slug"`
+			} `json:"game"`
 			TimeBasedDrops []struct {
 				ID   string `json:"id"`
 				Name string `json:"name"`
@@ -204,8 +216,16 @@ func (c *Client) ClaimAllDropsFromInventory(ctx context.Context) error {
 				continue
 			}
 			if !drop.Self.IsClaimed && drop.Self.DropInstanceID != "" {
+					categoryName := ""
+					if campaign.Game != nil {
+						categoryName = campaign.Game.Slug
+						if categoryName == "" {
+							categoryName = campaign.Game.Name
+						}
+					}
 					c.Log.Event(ctx, model.EventDropClaim, "Claiming drop from inventory",
-						"drop", drop.Name)
+						"drop", drop.Name,
+						"category", categoryName)
 				_, err := c.GQL.ClaimDropRewards(ctx, drop.Self.DropInstanceID)
 				if err != nil {
 					c.Log.Warn("Failed to claim drop from inventory",
