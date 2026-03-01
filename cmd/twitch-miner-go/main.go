@@ -19,6 +19,8 @@ import (
 	"github.com/Guliveer/twitch-miner-go/internal/miner"
 	"github.com/Guliveer/twitch-miner-go/internal/model"
 	"github.com/Guliveer/twitch-miner-go/internal/server"
+	"github.com/Guliveer/twitch-miner-go/internal/updater"
+	"github.com/Guliveer/twitch-miner-go/internal/version"
 	"github.com/joho/godotenv"
 )
 
@@ -32,7 +34,13 @@ func main() {
 	configDir := flag.String("config", "configs", "Path to the configuration directory")
 	port := flag.String("port", "8080", "Port for the health/analytics HTTP server")
 	logLevel := flag.String("log-level", "", "Log level: DEBUG, INFO, WARN, ERROR (overrides LOG_LEVEL env)")
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version.String())
+		os.Exit(0)
+	}
 
 	// Load .env file if it exists (ignore error if file is missing)
 	if err := godotenv.Load(); err != nil {
@@ -64,7 +72,19 @@ func main() {
 	}
 
 	fmt.Print(banner)
-	rootLog.Info("🚀 Starting Twitch Channel Points Miner (Go)")
+	rootLog.Info("🚀 Starting Twitch Channel Points Miner (Go)", "version", version.String())
+
+	// Check for updates in the background.
+	go func() {
+		info, err := updater.CheckForUpdate(context.Background(), version.Number)
+		if err != nil {
+			rootLog.Debug("Update check failed", "error", err)
+			return
+		}
+		if msg := updater.FormatNotification(info, version.Number); msg != "" {
+			fmt.Print(msg)
+		}
+	}()
 
 	configs, err := config.LoadAllAccountConfigs(*configDir)
 	if err != nil {

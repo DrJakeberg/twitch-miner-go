@@ -10,8 +10,12 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
-echo "Building twitch-miner-go..."
-go build -o twitch-miner-go ./cmd/twitch-miner-go
+VERSION=$(cat "$PROJECT_DIR/VERSION" 2>/dev/null || echo "dev")
+GIT_COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+LDFLAGS="-X github.com/Guliveer/twitch-miner-go/internal/version.Number=${VERSION} -X github.com/Guliveer/twitch-miner-go/internal/version.GitCommit=${GIT_COMMIT}"
+
+echo "Building twitch-miner-go v${VERSION}..."
+go build -ldflags "${LDFLAGS}" -o twitch-miner-go ./cmd/twitch-miner-go
 
 echo "Starting twitch-miner-go..."
 ./twitch-miner-go "$@"

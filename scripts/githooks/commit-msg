@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Validates commit message follows Conventional Commits format
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Skip merge commits
+if echo "$COMMIT_MSG" | grep -qE '^Merge '; then
+  exit 0
+fi
+
+# Conventional Commits pattern
+# type(optional-scope)!: description
+PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\([a-zA-Z0-9_-]+\))?(!)?: .+'
+
+if ! echo "$COMMIT_MSG" | head -1 | grep -qE "$PATTERN"; then
+  echo ""
+  echo "❌ Invalid commit message format!"
+  echo ""
+  echo "Commit message must follow Conventional Commits:"
+  echo "  <type>[optional scope][!]: <description>"
+  echo ""
+  echo "Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build"
+  echo ""
+  echo "Examples:"
+  echo "  feat: add new notification system"
+  echo "  fix(auth): resolve token refresh issue"
+  echo "  feat!: redesign API endpoints"
+  echo "  docs: update README with new setup instructions"
+  echo ""
+  echo "Version bump rules:"
+  echo "  MAJOR: feat!: or fix!: (breaking change)"
+  echo "  MINOR: feat:"
+  echo "  PATCH: fix:, perf:, refactor:, build:"
+  echo "  NONE:  docs:, style:, test:, ci:, chore:"
+  echo ""
+  exit 1
+fi

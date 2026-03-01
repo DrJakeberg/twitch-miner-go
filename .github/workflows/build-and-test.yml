@@ -11,6 +11,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  commit-lint:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Conventional Commits
+        run: |
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+
+          PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\([a-zA-Z0-9_-]+\))?(!)?: .+'
+
+          errors=0
+          while IFS= read -r line; do
+            sha="${line%% *}"
+            msg="${line#* }"
+            
+            # Skip merge commits
+            if echo "$msg" | grep -qE '^Merge '; then
+              continue
+            fi
+            
+            if ! echo "$msg" | grep -qE "$PATTERN"; then
+              echo "❌ ${sha:0:7}: $msg"
+              errors=$((errors + 1))
+            else
+              echo "✅ ${sha:0:7}: $msg"
+            fi
+          done <<< "$(git log ${BASE_SHA}..${HEAD_SHA} --format='%H %s')"
+
+          if [ "$errors" -gt 0 ]; then
+            echo ""
+            echo "🚫 $errors commit(s) don't follow Conventional Commits format."
+            echo "Format: <type>[optional scope][!]: <description>"
+            echo "Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All commits follow Conventional Commits format."
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -27,7 +71,10 @@ jobs:
         run: go mod download
 
       - name: Build
-        run: go build -v ./...
+        run: |
+          VERSION=$(cat VERSION)
+          GIT_COMMIT=$(git rev-parse --short HEAD)
+          go build -v -ldflags "-X github.com/Guliveer/twitch-miner-go/internal/version.Number=${VERSION} -X github.com/Guliveer/twitch-miner-go/internal/version.GitCommit=${GIT_COMMIT}" ./...
 
       - name: Test
         run: go test -v ./...

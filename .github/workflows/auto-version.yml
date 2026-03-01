@@ -1,0 +1,149 @@
+name: Auto Version & Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-version
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.event.head_commit.message, 'chore:')"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version bump
+        id: bump
+        run: |
+          # Find the last version tag
+          LAST_TAG=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n1)
+
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous version tag found. Using first commit as base."
+            RANGE="HEAD"
+            COMMITS=$(git log --format="%s" "$RANGE")
+          else
+            echo "Last tag: $LAST_TAG"
+            RANGE="${LAST_TAG}..HEAD"
+            COMMITS=$(git log --format="%s" "$RANGE")
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits since last tag."
+            echo "bump=skip" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Commits since last tag:"
+          echo "$COMMITS"
+          echo ""
+
+          BUMP="skip"
+
+          while IFS= read -r msg; do
+            [ -z "$msg" ] && continue
+
+            # Check for breaking changes
+            if echo "$msg" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\([a-zA-Z0-9_-]+\))?!: '; then
+              BUMP="major"
+              break
+            fi
+            if echo "$msg" | grep -qiE 'BREAKING CHANGE:'; then
+              BUMP="major"
+              break
+            fi
+
+            # Check for features
+            if echo "$msg" | grep -qE '^feat(\([a-zA-Z0-9_-]+\))?: '; then
+              if [ "$BUMP" != "major" ]; then
+                BUMP="minor"
+              fi
+              continue
+            fi
+
+            # Check for patch-level types
+            if echo "$msg" | grep -qE '^(fix|perf|refactor|build)(\([a-zA-Z0-9_-]+\))?: '; then
+              if [ "$BUMP" = "skip" ]; then
+                BUMP="patch"
+              fi
+              continue
+            fi
+
+            # Check for no-bump types
+            if echo "$msg" | grep -qE '^(docs|style|test|ci|chore)(\([a-zA-Z0-9_-]+\))?: '; then
+              continue
+            fi
+
+            # Non-conventional commit — default to patch as safety net
+            if [ "$BUMP" = "skip" ]; then
+              BUMP="patch"
+            fi
+          done <<< "$COMMITS"
+
+          echo "Determined bump type: $BUMP"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version
+        if: steps.bump.outputs.bump != 'skip'
+        id: version
+        run: |
+          CURRENT=$(cat VERSION)
+          echo "Current version: $CURRENT"
+
+          BUMP="${{ steps.bump.outputs.bump }}"
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          case "$BUMP" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: $NEW_VERSION"
+
+          printf "%s" "$NEW_VERSION" > VERSION
+
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and tag
+        if: steps.bump.outputs.bump != 'skip'
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+
+          git add VERSION
+          git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
+          git tag -a "v${NEW_VERSION}" -m "v${NEW_VERSION}"
+          git push origin main --follow-tags
+
+      - name: Create GitHub Release
+        if: steps.bump.outputs.bump != 'skip'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.new_version }}"
+          generate_release_notes: true
