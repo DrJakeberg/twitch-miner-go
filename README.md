@@ -32,30 +32,31 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
 **Unix (macOS/Linux):**
 
 ```bash
-./scripts/run.sh
+./run.sh
 ```
 
 **Windows:**
 
 ```batch
-scripts\run.bat
+run.bat
 ```
 
 **With custom flags:**
 
 ```bash
-./scripts/run.sh -config configs -port 9090 -log-level debug
+./run.sh -config configs -port 9090 -log-level debug
 ```
 
-> The scripts build the binary and run it in one step. You can also build manually with `go build -o twitch-miner ./cmd/miner`.
+> The scripts build the binary and run it in one step. You can also build manually with `go build -o twitch-miner-go ./cmd/twitch-miner-go`.
 
 ### Flags
 
-| Flag         | Default   | Description                          |
-| ------------ | --------- | ------------------------------------ |
-| `-config`    | `configs` | Path to the configuration directory  |
-| `-port`      | `8080`    | Port for the health/analytics server |
-| `-log-level` | `INFO`    | Log level: DEBUG, INFO, WARN, ERROR  |
+| Flag         | Default   | Description                                                     |
+| ------------ | --------- | --------------------------------------------------------------- |
+| `-config`    | `configs` | Path to the configuration directory                             |
+| `-port`      | `8080`    | Port for the health/analytics server                            |
+| `-log-level` | `INFO`    | Log level: DEBUG, INFO, WARN, ERROR (effective default: `INFO`) |
+| `-version`   | `false`   | Print version and exit                                          |
 
 ## Configuration
 
@@ -76,6 +77,9 @@ See [`configs/example.yaml.example`](configs/example.yaml.example) for the full 
 # configs/your_twitch_username.yaml
 # The filename IS the username — no username field needed.
 
+# Set to false to disable this account without deleting the config (default: true)
+enabled: true
+
 features:
   claim_drops_startup: false
   enable_analytics: true
@@ -91,6 +95,7 @@ streamer_defaults:
   claim_drops: true
   claim_moments: true
   watch_streak: true
+  community_goals: false
   chat: "ONLINE"
   bet:
     strategy: "SMART"
@@ -104,6 +109,15 @@ streamers:
   - username: "streamer2"
     settings:
       make_predictions: false
+
+# Blacklisted streamers excluded even if followed
+blacklist:
+  - "unwanted_streamer"
+
+# Follow mode — also watch all followed channels
+followers:
+  enabled: false
+  order: "ASC"
 ```
 
 ### Environment Variables
@@ -244,7 +258,7 @@ The `events` list controls which events trigger a notification for a given provi
 | `GIFTED_SUB`            | 🎁    | Received a gifted subscription    |
 | `TEST`                  | —     | Test notification (see below)     |
 
-> **Note:** Emojis are prepended to log messages and notifications automatically. They are defined in [`eventEmoji`](internal/logger/logger.go:19) and sourced from [`internal/model/settings.go`](internal/model/settings.go:7).
+> **Note:** Emojis are prepended to log messages and notifications automatically. The emoji mappings are defined in [`eventEmoji`](internal/logger/logger.go:19). The event type constants themselves are defined in [`internal/model/settings.go`](internal/model/settings.go:7).
 
 **Example — send only specific events to Telegram:**
 
@@ -295,10 +309,11 @@ Authentication is automatic — on first run the miner walks through a priority 
 
 | Priority | Method                                     | Description                                                                                                                             |
 | -------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 1        | **Cookie file**                            | Saved from a previous successful login. Reused automatically.                                                                           |
-| 2        | **`TWITCH_AUTH_TOKEN_<USERNAME>` env var** | Fallback — checked directly in [`Login()`](internal/auth/auth.go:93) via `os.Getenv()`.                                                 |
-| 3        | **`TWITCH_PASSWORD_<USERNAME>` env var**   | Last resort — password login, checked via `os.Getenv()` in [`Login()`](internal/auth/auth.go:93). May require 2FA.                      |
-| 4        | **Device code flow**                       | Interactive — displays a code in the terminal and waits for you to activate it at [twitch.tv/activate](https://www.twitch.tv/activate). |
+| 1        | **Cookie file**                            | Saved from a previous successful login. Reused automatically. If the token is expired, a **refresh token** flow is attempted first.     |
+| 2        | **Auth token from config** (`auth_token`)  | Token set directly in the YAML config file — checked in [`Login()`](internal/auth/auth.go:79).                                          |
+| 3        | **`TWITCH_AUTH_TOKEN_<USERNAME>` env var** | Fallback — checked directly in [`Login()`](internal/auth/auth.go:79) via `os.Getenv()`.                                                 |
+| 4        | **`TWITCH_PASSWORD_<USERNAME>` env var**   | Last resort — password login, checked via `os.Getenv()` in [`Login()`](internal/auth/auth.go:79). May require 2FA.                      |
+| 5        | **Device code flow (RECOMMENDED)**         | Interactive — displays a code in the terminal and waits for you to activate it at [twitch.tv/activate](https://www.twitch.tv/activate). |
 
 Once authenticated by **any** method, the token is validated against the Twitch OAuth2 endpoint to confirm it belongs to the expected user (derived from the config filename). If there's a mismatch — for example, you completed the device code flow with the wrong Twitch account — the system will show a clear error like:
 
@@ -306,7 +321,7 @@ Once authenticated by **any** method, the token is validated against the Twitch 
 
 The validated token is then saved to a cookie file and reused on subsequent starts — so the device code flow is typically a one-time step.
 
-> **⚠️ Warning:** Password login (step 3) may trigger Twitch's two-factor authentication (2FA) prompt, making it less reliable in fully headless environments. **Prefer `TWITCH_AUTH_TOKEN_<USERNAME>` over `TWITCH_PASSWORD_<USERNAME>` whenever possible.** Use the password method only as a last resort when you cannot obtain an OAuth token.
+> **⚠️ Warning:** Password login (step 4) may trigger Twitch's two-factor authentication (2FA) prompt, making it less reliable in fully headless environments. **Prefer `TWITCH_AUTH_TOKEN_<USERNAME>` over `TWITCH_PASSWORD_<USERNAME>` whenever possible.** Use the password method only as a last resort when you cannot obtain an OAuth token.
 
 ### When to use the env vars
 
@@ -331,16 +346,18 @@ The variable name is `TWITCH_AUTH_TOKEN_` followed by the **uppercase** username
 # Build
 docker build -t twitch-miner-go .
 
-# Run
+# Run (DATA_DIR is required to persist cookies across container restarts)
 docker run -d \
   -p 8080:8080 \
   -v miner_data:/data \
+  -e DATA_DIR=/data \
   twitch-miner-go
 
 # Run with auth token (recommended — for headless environments)
 docker run -d \
   -p 8080:8080 \
   -v miner_data:/data \
+  -e DATA_DIR=/data \
   -e TWITCH_AUTH_TOKEN_YOUR_USERNAME=your_oauth_token \
   twitch-miner-go
 
@@ -348,6 +365,7 @@ docker run -d \
 docker run -d \
   -p 8080:8080 \
   -v miner_data:/data \
+  -e DATA_DIR=/data \
   -e TWITCH_PASSWORD_YOUR_USERNAME=your_twitch_password \
   twitch-miner-go
 ```
@@ -387,6 +405,10 @@ fly secrets set TELEGRAM_CHAT_ID_YOUR_USERNAME=your_chat_id
 
 ### Manual Deploy
 
+> **Note:**
+> _[Fly.io](https://fly.io)_ is a personal preference — therefore this project is prepared for it out of the box with a `fly.toml` and volume configuration for cookie persistence.  
+> However, the miner is designed to be portable and can run on any platform that supports Go. You are not limited to Fly.io — feel free to deploy on AWS, GCP, Azure, Heroku, DigitalOcean, or any other hosting provider of your choice.
+
 ```bash
 fly deploy
 
@@ -397,97 +419,14 @@ fly logs
 curl https://your-app-name.fly.dev/health
 ```
 
-### Automatic Deploy (CI/CD)
-
-The repo includes a [GitHub Actions workflow](.github/workflows/deploy.yml) that automatically deploys to Fly.io on every push to `main`.
-
-To enable it:
-
-1. **Generate a Fly.io deploy token:**
-
-   ```bash
-   fly tokens create deploy -x 999999h
-   ```
-
-2. **Add the token as a GitHub Secret:**
-
-   Go to your repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
-   - **Name:** `FLY_API_TOKEN`
-   - **Value:** the token from step 1
-
-Once configured, every push to `main` will trigger an automatic deployment.
-
 ## Development
 
-### Commit Convention
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) and automated versioning. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full commit convention, git hooks setup, and versioning workflow.
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) to drive automated versioning and changelog generation. Every commit/PR message must follow this format:
+## Auto-Update Checker
 
-```
-<type>[optional scope][!]: <description>
-```
-
-**Allowed types and their version bump effect:**
-
-| Type       | Description             | Version Bump  |
-| ---------- | ----------------------- | ------------- |
-| `feat`     | New feature             | Minor (1.x.0) |
-| `fix`      | Bug fix                 | Patch (1.0.x) |
-| `perf`     | Performance improvement | Patch         |
-| `refactor` | Code refactoring        | Patch         |
-| `build`    | Build system changes    | Patch         |
-| `docs`     | Documentation only      | None          |
-| `style`    | Code style/formatting   | None          |
-| `test`     | Adding/updating tests   | None          |
-| `ci`       | CI/CD changes           | None          |
-| `chore`    | Maintenance tasks       | None          |
-
-**Breaking changes** — adding `!` after the type (e.g., `feat!:`) or including `BREAKING CHANGE:` in the commit body triggers a **major** version bump (x.0.0).
-
-**Examples:**
-
-```
-feat: add Discord notification support
-fix(auth): resolve token refresh race condition
-feat!: redesign configuration file format
-docs: update installation instructions
-chore: update dependencies
-```
-
-### Setting Up Git Hooks
-
-Run the hook installer to enable local commit validation:
-
-```bash
-./scripts/install-hooks.sh
-```
-
-This configures two git hooks:
-
-- **`commit-msg`** — validates that every commit message follows the Conventional Commits format before it is recorded.
-- **`pre-push`** — re-validates all outgoing commits before they are pushed to the remote.
-
-> **Tip:** The hooks are stored in [`scripts/githooks/`](scripts/githooks/) and the installer ([`scripts/install-hooks.sh`](scripts/install-hooks.sh)) simply points `core.hooksPath` at that directory — no files are copied into `.git/`.
-
-### Automated Versioning
-
-Releases are fully automated through GitHub Actions:
-
-1. Developers write commits using the Conventional Commits format described above.
-2. Git hooks enforce the format locally (see [Setting Up Git Hooks](#setting-up-git-hooks)).
-3. CI validates the commit format on pull requests.
-4. On merge to `main`, the [auto-version workflow](.github/workflows/auto-version.yml) automatically:
-   - Analyzes commit messages since the last release
-   - Determines the appropriate version bump (major / minor / patch)
-   - Updates the [`VERSION`](VERSION) file
-   - Creates a git tag and GitHub Release
-
-No manual version bumps or tags are needed — just write well-formatted commits and the pipeline handles the rest.
-
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design, concurrency model, and data flow diagrams.
+On startup, the miner automatically checks for new releases in the background via [`updater.CheckForUpdate()`](internal/updater/updater.go). If a newer version is available, a notification is printed to the terminal. This check is non-blocking and does not affect startup time.
 
 ## License
 
-Same as the upstream project.
+This project is licensed under the GNU GPL v3.0 License. See the [LICENSE](LICENSE.txt) file for details.
