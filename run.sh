@@ -2,11 +2,10 @@
 set -euo pipefail
 
 # Build and run twitch-miner-go
-# Usage: ./scripts/run.sh [flags]
-# Example: ./scripts/run.sh -config configs -port 8080 -log-level debug
+# Usage: ./run.sh [flags]
+# Example: ./run.sh -config configs -port 8080 -log-level debug
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 cd "$PROJECT_DIR"
 

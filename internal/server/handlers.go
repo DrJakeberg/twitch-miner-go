@@ -243,7 +243,7 @@ var eventCategories = map[string][]string{
 	"bets":    {"BET_START", "BET_WIN", "BET_LOSE", "BET_REFUND", "BET_FILTERS", "BET_GENERAL", "BET_FAILED"},
 	"raids":   {"JOIN_RAID"},
 	"streams": {"STREAMER_ONLINE", "STREAMER_OFFLINE"},
-	"other":   {"MOMENT_CLAIM", "CHAT_MENTION"},
+	"other":   {"MOMENT_CLAIM", "CHAT_MENTION", "GIFTED_SUB"},
 }
 
 type eventLogEntry struct {

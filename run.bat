@@ -2,13 +2,13 @@
 setlocal
 
 REM Build and run twitch-miner-go
-REM Usage: scripts\run.bat [flags]
-REM Example: scripts\run.bat -config configs -port 8080 -log-level debug
+REM Usage: run.bat [flags]
+REM Example: run.bat -config configs -port 8080 -log-level debug
 
-cd /d "%~dp0\.."
+cd /d "%~dp0"
 
-if exist "%~dp0\..\VERSION" (
-    set /p VERSION=<"%~dp0\..\VERSION"
+if exist "%~dp0VERSION" (
+    set /p VERSION=<"%~dp0VERSION"
 ) else (
     set VERSION=dev
 )
