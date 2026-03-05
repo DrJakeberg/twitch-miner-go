@@ -235,6 +235,7 @@ func (a *Authenticator) refreshAccessToken(ctx context.Context) error {
 
 	form := url.Values{
 		"client_id":     {constants.ClientID},
+		"client_secret": {""},
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {refreshToken},
 	}
