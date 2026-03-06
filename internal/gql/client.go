@@ -196,7 +196,7 @@ func (c *Client) PostGQLBatch(ctx context.Context, ops []constants.GQLOperation,
 		return nil, fmt.Errorf("marshaling batch GQL request: %w", err)
 	}
 
-	respBody, err := c.doHTTPRequest(ctx, jsonBody, "batch")
+	respBody, err := c.doHTTPRequest(ctx, jsonBody, "batch", false)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,12 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 		return nil, fmt.Errorf("marshaling GQL request: %w", err)
 	}
 
-	respBody, err := c.doHTTPRequest(ctx, jsonBody, opName)
+	// Raw queries (non-persisted) should not send the integrity token —
+	// Twitch's integrity system is designed for persisted queries and
+	// sending it with raw queries causes "service error" for some categories.
+	skipIntegrity := reqBody.Query != ""
+
+	respBody, err := c.doHTTPRequest(ctx, jsonBody, opName, skipIntegrity)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +284,7 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 // Retry logging strategy: individual retries are logged at DEBUG level to
 // reduce noise. Only the final failure (after all retries exhausted) is
 // logged at WARN level. Known-flaky operations (e.g., VideoPlayerStreamInfoOverlayChannel)
-func (c *Client) doHTTPRequest(ctx context.Context, jsonBody []byte, opName string) ([]byte, error) {
+func (c *Client) doHTTPRequest(ctx context.Context, jsonBody []byte, opName string, skipIntegrity bool) ([]byte, error) {
 	if c.breaker.shouldSkip() {
 		c.log.Debug("Circuit breaker open, skipping request", "operation", opName)
 		return nil, ErrCircuitOpen
@@ -314,11 +319,13 @@ func (c *Client) doHTTPRequest(ctx context.Context, jsonBody []byte, opName stri
 		}
 		req.Header.Set("Client-Version", c.updateClientVersion(ctx))
 
-		if integrityToken, err := c.auth.FetchIntegrityToken(ctx); err != nil {
-			c.log.Debug("Failed to fetch integrity token, proceeding without it",
-				"operation", opName, "error", err)
-		} else if integrityToken != "" {
-			req.Header.Set("Client-Integrity", integrityToken)
+		if !skipIntegrity {
+			if integrityToken, err := c.auth.FetchIntegrityToken(ctx); err != nil {
+				c.log.Debug("Failed to fetch integrity token, proceeding without it",
+					"operation", opName, "error", err)
+			} else if integrityToken != "" {
+				req.Header.Set("Client-Integrity", integrityToken)
+			}
 		}
 
 		resp, err := c.httpClient.Do(req)
