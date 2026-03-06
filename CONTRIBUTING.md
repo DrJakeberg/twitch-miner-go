@@ -54,15 +54,14 @@ This configures two git hooks:
 
 ## Automated Versioning
 
-Releases are fully automated through GitHub Actions:
+Releases are fully automated through the [CI workflow](.github/workflows/ci.yml):
 
 1. Developers write commits using the Conventional Commits format described above.
 2. Git hooks enforce the format locally (see [Setting Up Git Hooks](#setting-up-git-hooks)).
 3. CI validates the commit format on pull requests.
-4. On merge to `main`, the [auto-version workflow](.github/workflows/auto-version.yml) automatically:
-   - Analyzes commit messages since the last release
-   - Determines the appropriate version bump (major / minor / patch)
-   - Updates the [`VERSION`](VERSION) file
-   - Creates a git tag and GitHub Release
+4. On merge to `main`, the CI pipeline runs in order: **build** → **version** → **deploy**:
+   - **build** — compiles, runs tests and vet
+   - **version** — analyzes commit messages, bumps [`VERSION`](VERSION), creates a git tag and GitHub Release
+   - **deploy** — deploys to Fly.io with the new version (only after build and version succeed)
 
-No manual version bumps or tags are needed — just write well-formatted commits and the pipeline handles the rest.
+No manual version bumps, tags, or deploys are needed — just write well-formatted commits and the pipeline handles the rest.
