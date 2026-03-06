@@ -1,20 +1,100 @@
-name: Auto Version & Release
+name: CI
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
 
 permissions:
   contents: write
 
 concurrency:
-  group: auto-version
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  version:
+  commit-lint:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    if: "!startsWith(github.event.head_commit.message, 'chore:')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Conventional Commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\([a-zA-Z0-9_-]+\))?(!)?: .+'
+
+          errors=0
+          while IFS= read -r line; do
+            sha="${line%% *}"
+            msg="${line#* }"
+
+            # Skip merge commits
+            if echo "$msg" | grep -qE '^Merge '; then
+              continue
+            fi
+
+            if ! echo "$msg" | grep -qE "$PATTERN"; then
+              echo "❌ ${sha:0:7}: $msg"
+              errors=$((errors + 1))
+            else
+              echo "✅ ${sha:0:7}: $msg"
+            fi
+          done <<< "$(git log "${BASE_SHA}..${HEAD_SHA}" --format='%H %s')"
+
+          if [ "$errors" -gt 0 ]; then
+            echo ""
+            echo "🚫 $errors commit(s) don't follow Conventional Commits format."
+            echo "Format: <type>[optional scope][!]: <description>"
+            echo "Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All commits follow Conventional Commits format."
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: |
+          VERSION=$(cat VERSION)
+          GIT_COMMIT=$(git rev-parse --short HEAD)
+          go build -v -ldflags "-X github.com/Guliveer/twitch-miner-go/internal/version.Number=${VERSION} -X github.com/Guliveer/twitch-miner-go/internal/version.GitCommit=${GIT_COMMIT}" ./...
+
+      - name: Test
+        run: go test -v ./...
+
+      - name: Vet
+        run: go vet ./...
+
+  version:
+    needs: [build]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      !startsWith(github.event.head_commit.message, 'chore:')
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      bumped: ${{ steps.bump.outputs.bump }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -84,14 +164,12 @@ jobs:
               continue
             fi
 
-            # Check for no-bump types
+            # Check for no-bump types (docs, style, test, ci, chore)
             if echo "$msg" | grep -qE '^(docs|style|test|ci|chore)(\([a-zA-Z0-9_-]+\))?: '; then
               continue
             fi
 
-            # Non-conventional commit — skip (do not bump)
-            # Conventional commits are enforced by git hooks and CI lint,
-            # so non-matching messages (e.g., merge commits) should not trigger a release.
+            # Non-conventional commit — skip
             continue
           done <<< "$COMMITS"
 
@@ -133,9 +211,9 @@ jobs:
 
       - name: Commit and tag
         if: steps.bump.outputs.bump != 'skip'
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
         run: |
-          NEW_VERSION="${{ steps.version.outputs.new_version }}"
-
           git add VERSION
           git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
           git tag -a "v${NEW_VERSION}" -m "v${NEW_VERSION}"
@@ -147,3 +225,23 @@ jobs:
         with:
           tag_name: "v${{ steps.version.outputs.new_version }}"
           generate_release_notes: true
+
+  deploy:
+    needs: [build, version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          GIT_COMMIT=$(git rev-parse --short HEAD)
+          flyctl deploy --remote-only \
+            --build-arg "VERSION=${VERSION}" \
+            --build-arg "GIT_COMMIT=${GIT_COMMIT}"
