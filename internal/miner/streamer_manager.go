@@ -56,10 +56,6 @@ func (m *Miner) addStreamer(ctx context.Context, s *model.Streamer) {
 	}
 }
 
-func (m *Miner) removeStreamer(username string) {
-	m.removeStreamerWithReason(username, "")
-}
-
 // removeStreamerWithReason removes a streamer by username with an optional reason,
 // and unsubscribes from its PubSub topics.
 func (m *Miner) removeStreamerWithReason(username string, reason string) {

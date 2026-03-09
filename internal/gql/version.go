@@ -85,7 +85,7 @@ func fetchClientVersion(ctx context.Context, client *http.Client) (string, error
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Twitch homepage returned status %d", resp.StatusCode)
+		return "", fmt.Errorf("twitch homepage returned status %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 512<<10))

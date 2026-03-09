@@ -267,9 +267,10 @@ func (m *Miner) handlePredictionResult(ctx context.Context, event *model.EventPr
 		streamer.Mu.Lock()
 		streamer.UpdateHistory("PREDICTION", points["gained"], 1)
 
-		if resultType == "REFUND" {
+		switch resultType {
+		case "REFUND":
 			streamer.UpdateHistory("REFUND", -points["placed"], -1)
-		} else if resultType == "WIN" {
+		case "WIN":
 			streamer.UpdateHistory("PREDICTION", -points["won"], -1)
 		}
 		streamer.Mu.Unlock()

@@ -546,9 +546,10 @@ func (ep *EventPrediction) ParseResult(resultType string, pointsWon int) map[str
 	}
 
 	action := "Gained"
-	if resultType == "LOSE" {
+	switch resultType {
+	case "LOSE":
 		action = "Lost"
-	} else if resultType == "REFUND" {
+	case "REFUND":
 		action = "Refunded"
 	}
 

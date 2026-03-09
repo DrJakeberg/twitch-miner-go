@@ -162,7 +162,7 @@ func (l *Logger) Event(ctx context.Context, event model.Event, msg string, args 
 	if emoji, ok := eventEmoji[string(event)]; ok {
 		msg = emoji + " " + msg
 	}
-	l.Logger.Info(msg, append(args, "event", string(event))...)
+	l.Info(msg, append(args, "event", string(event))...)
 
 	if fn, ok := l.notifyFn.Load().(NotifyFunc); ok && fn != nil {
 		// Build clean args string, excluding streamer and category (shown in title)

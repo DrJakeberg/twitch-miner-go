@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/Guliveer/twitch-miner-go/internal/constants"
-	"golang.org/x/term"
 )
 
 type loginResponse struct {
@@ -172,21 +171,6 @@ func (a *Authenticator) saveCookies() {
 	}
 }
 
-// isInteractiveTerminal returns true if stdin is connected to a terminal
-func isInteractiveTerminal() bool {
-	return term.IsTerminal(int(os.Stdin.Fd()))
-}
-
-// promptPassword reads a password from stdin without echoing it.
-func promptPassword(prompt string) (string, error) {
-	fmt.Print(prompt)
-	password, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Println() // newline after hidden input
-	if err != nil {
-		return "", fmt.Errorf("reading password: %w", err)
-	}
-	return string(password), nil
-}
 
 func promptLine(prompt string) (string, error) {
 	fmt.Print(prompt)
