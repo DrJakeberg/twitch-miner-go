@@ -234,6 +234,9 @@ jobs:
   deploy:
     needs: [build, version]
     runs-on: ubuntu-latest
+    environment:
+      name: fly.io [prod]
+      url: https://twitch-miner-go.fly.dev
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
