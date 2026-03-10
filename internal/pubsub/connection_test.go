@@ -249,3 +249,24 @@ func TestHandleResponse_OtherErrors_NoRefresh(t *testing.T) {
 	}
 	mock.mu.Unlock()
 }
+
+func TestHandleResponse_ReconnectClosesConnection(t *testing.T) {
+	mock := &mockAuthProvider{token: "valid-token", userID: "123"}
+	c := newTestConnection(mock)
+
+	ctx := context.Background()
+	c.handleResponse(ctx, &Response{Type: TypeReconnect})
+
+	if c.IsConnected() {
+		t.Fatal("expected connection to be marked disconnected after reconnect request")
+	}
+
+	select {
+	case _, ok := <-c.Messages():
+		if ok {
+			t.Fatal("expected messages channel to be closed after reconnect request")
+		}
+	default:
+		t.Fatal("expected messages channel to close after reconnect request")
+	}
+}
