@@ -369,6 +369,10 @@ func (s *AnalyticsServer) handleEventLogs(w http.ResponseWriter, r *http.Request
 		}
 
 		st.Mu.RLock()
+		streamerName := st.DisplayName
+		if streamerName == "" {
+			streamerName = st.Username
+		}
 		for event, hist := range st.History {
 			// Apply event filter.
 			if eventFilter != "" && event != eventFilter {
@@ -380,7 +384,7 @@ func (s *AnalyticsServer) handleEventLogs(w http.ResponseWriter, r *http.Request
 			}
 			entries = append(entries, eventLogEntry{
 				Account:  st.AccountUsername,
-				Streamer: st.DisplayName,
+				Streamer: streamerName,
 				Event:    event,
 				Count:    hist.Counter,
 				Amount:   hist.Amount,
@@ -410,8 +414,12 @@ func (s *AnalyticsServer) handleEventFilters(w http.ResponseWriter, _ *http.Requ
 		if st.AccountUsername != "" {
 			accountSet[st.AccountUsername] = true
 		}
-		channelSet[st.DisplayName] = true
 		st.Mu.RLock()
+		streamerName := st.DisplayName
+		if streamerName == "" {
+			streamerName = st.Username
+		}
+		channelSet[streamerName] = true
 		for event := range st.History {
 			eventSet[event] = true
 		}
