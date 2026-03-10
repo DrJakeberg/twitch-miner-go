@@ -441,14 +441,35 @@ docker run -d \
 ### Docker Compose
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-The included [`docker-compose.yml`](docker-compose.yml) mounts:
+The included [`docker-compose.yml`](docker-compose.yml) uses the published GHCR image by default:
+
+```text
+ghcr.io/drjakeberg/twitch-miner-go:latest
+```
+
+Set `TWITCH_MINER_IMAGE` in `.env` if you want to pin a version or use a different registry/tag.
+
+The compose setup mounts:
 
 - `./configs` to `/configs` as read-only account configuration
 - a named volume to `/data` for cookies and persisted session state
 - `.env` for required Twitch client identifiers, dashboard auth, and account secrets
+
+### GitHub Container Registry
+
+This repository publishes Docker images to GHCR with GitHub Actions.
+
+- `main` pushes publish `latest` and a short SHA tag
+- version tags such as `v1.2.3` publish `1.2.3` and `1.2`
+
+Example image references:
+
+- `ghcr.io/drjakeberg/twitch-miner-go:latest`
+- `ghcr.io/drjakeberg/twitch-miner-go:1.2.3`
+- `ghcr.io/drjakeberg/twitch-miner-go:sha-abcdef1`
 
 ## Deploy to Fly.io
 
