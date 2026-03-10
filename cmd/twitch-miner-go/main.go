@@ -200,6 +200,17 @@ func main() {
 		return allErrs
 	})
 
+	analyticsServer.SetDebugFunc(func() any {
+		snapshots := make([]miner.DebugSnapshot, 0, len(miners))
+		for _, entry := range miners {
+			snapshots = append(snapshots, entry.miner.DebugSnapshot())
+		}
+		return map[string]any{
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+			"miners":    snapshots,
+		}
+	})
+
 	utils.SafeGo(func() {
 		if err := analyticsServer.Run(ctx); err != nil && ctx.Err() == nil {
 			rootLog.Error("Analytics server failed", "error", err)

@@ -85,6 +85,19 @@ func (s *AnalyticsServer) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+func (s *AnalyticsServer) handleDebug(w http.ResponseWriter, _ *http.Request) {
+	s.mu.RLock()
+	fn := s.debugFunc
+	s.mu.RUnlock()
+
+	if fn == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "debug snapshot is not configured"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, fn())
+}
+
 // filterStreamers applies query-parameter filters to a streamer list.
 // When a filter parameter is empty the corresponding check is skipped,
 // so callers with no filters get the full list back unchanged.
