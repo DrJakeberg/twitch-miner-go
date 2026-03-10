@@ -1,0 +1,24 @@
+services:
+  twitch-miner-go:
+    build:
+      context: .
+    image: twitch-miner-go:local
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - ./configs:/configs:ro
+      - twitch-miner-data:/data
+    healthcheck:
+      test: ["CMD", "/twitch-miner-go", "-version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  twitch-miner-data:

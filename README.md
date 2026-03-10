@@ -132,8 +132,16 @@ followers:
 
 Secrets and auth tokens are injected via environment variables. Per-account variables **require** the `_<USERNAME>` suffix (uppercase) to scope them to the correct account.
 
+Use the `configs/` directory for per-account behavior such as watched streamers, betting strategy, and feature toggles. Use environment variables or `.env` for secrets and global runtime values that should not be duplicated per account.
+
 | Variable                         | Description                                         |
 | -------------------------------- | --------------------------------------------------- |
+| `TWITCH_CLIENT_ID_TV`            | Required Twitch TV client ID                        |
+| `TWITCH_CLIENT_ID_BROWSER`       | Required Twitch browser client ID                   |
+| `TWITCH_CLIENT_ID_MOBILE`        | Required Twitch mobile web client ID                |
+| `TWITCH_CLIENT_ID_ANDROID`       | Required Twitch Android client ID                   |
+| `TWITCH_CLIENT_ID_IOS`           | Required Twitch iOS client ID                       |
+| `TWITCH_CLIENT_VERSION`          | Required Twitch browser client version              |
 | `TWITCH_AUTH_TOKEN_<USERNAME>`   | OAuth token (fallback for headless auth)            |
 | `TWITCH_PASSWORD_<USERNAME>`     | Twitch password (last-resort auth, may require 2FA) |
 | `TELEGRAM_TOKEN_<USERNAME>`      | Telegram bot token                                  |
@@ -187,6 +195,14 @@ Environment variables (whether from `.env` or the system) **override** the corre
 # Global
 LOG_LEVEL=DEBUG
 PORT=9090
+
+# Required Twitch runtime identifiers
+TWITCH_CLIENT_ID_TV=your_tv_client_id
+TWITCH_CLIENT_ID_BROWSER=your_browser_client_id
+TWITCH_CLIENT_ID_MOBILE=your_mobile_client_id
+TWITCH_CLIENT_ID_ANDROID=your_android_client_id
+TWITCH_CLIENT_ID_IOS=your_ios_client_id
+TWITCH_CLIENT_VERSION=your_client_version
 
 # Notification secrets for user "guliveer_"
 TELEGRAM_TOKEN_GULIVEER_=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
@@ -396,14 +412,18 @@ docker build -t twitch-miner-go .
 docker run -d \
   -p 8080:8080 \
   -v miner_data:/data \
+  -v $(pwd)/configs:/configs:ro \
   -e DATA_DIR=/data \
+  --env-file .env \
   twitch-miner-go
 
 # Run with auth token (recommended — for headless environments)
 docker run -d \
   -p 8080:8080 \
   -v miner_data:/data \
+  -v $(pwd)/configs:/configs:ro \
   -e DATA_DIR=/data \
+  --env-file .env \
   -e TWITCH_AUTH_TOKEN_YOUR_USERNAME=your_oauth_token \
   twitch-miner-go
 
@@ -411,10 +431,24 @@ docker run -d \
 docker run -d \
   -p 8080:8080 \
   -v miner_data:/data \
+  -v $(pwd)/configs:/configs:ro \
   -e DATA_DIR=/data \
+  --env-file .env \
   -e TWITCH_PASSWORD_YOUR_USERNAME=your_twitch_password \
   twitch-miner-go
 ```
+
+### Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+The included [`docker-compose.yml`](docker-compose.yml) mounts:
+
+- `./configs` to `/configs` as read-only account configuration
+- a named volume to `/data` for cookies and persisted session state
+- `.env` for required Twitch client identifiers, dashboard auth, and account secrets
 
 ## Deploy to Fly.io
 

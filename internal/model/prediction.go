@@ -273,11 +273,15 @@ type Bet struct {
 
 // NewBet creates a new Bet from a list of outcomes and settings.
 func NewBet(outcomes []Outcome, settings *BetSettings) *Bet {
-	return &Bet{
+	bet := &Bet{
 		Outcomes: outcomes,
 		Decision: BetDecision{Choice: -1},
 		Settings: settings,
 	}
+
+	bet.UpdateOutcomes(outcomes)
+
+	return bet
 }
 
 // UpdateOutcomes refreshes outcome statistics from new data.
@@ -495,8 +499,13 @@ type EventPrediction struct {
 	Status string `json:"status"`
 	Result PredictionResult `json:"result"`
 	BoxFillable bool `json:"box_fillable"`
+	ScheduledFor time.Time `json:"scheduled_for"`
 	BetConfirmed bool `json:"bet_confirmed"`
 	BetPlaced bool `json:"bet_placed"`
+	PlacementInFlight bool `json:"placement_in_flight"`
+	PlacementAttempts int `json:"placement_attempts"`
+	LastAttemptAt time.Time `json:"last_attempt_at"`
+	LastFailedReason string `json:"last_failed_reason"`
 	Bet *Bet `json:"bet"`
 }
 
@@ -586,4 +595,3 @@ func GetPredictionWindow(settings *BetSettings, predictionWindowSeconds float64)
 		return predictionWindowSeconds
 	}
 }
-

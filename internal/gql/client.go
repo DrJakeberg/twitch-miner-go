@@ -1,6 +1,6 @@
 // Package gql provides a typed GraphQL client for the Twitch GQL API.
-// It handles connection pooling, request building, client version caching,
-// rate limiting awareness, and error handling with retries.
+// It handles connection pooling, request building, runtime-configured client
+// version headers, rate limiting awareness, and error handling with retries.
 package gql
 
 import (
@@ -71,14 +71,13 @@ func (cb *circuitBreaker) shouldSkip() bool {
 	return time.Now().Before(cb.cooldownUntil)
 }
 
-// Client is the Twitch GQL HTTP client with connection pooling,
-// client version caching, circuit breaker, and retry logic.
+// Client is the Twitch GQL HTTP client with connection pooling, a circuit
+// breaker, and retry logic.
 type Client struct {
 	httpClient   *http.Client
 	transport    *http.Transport
 	auth         auth.Provider
 	log          *logger.Logger
-	versionCache *versionCache
 	breaker      *circuitBreaker
 
 	maxRetries int
@@ -105,13 +104,12 @@ func NewClient(authenticator auth.Provider, log *logger.Logger, proxyURL *url.UR
 	}
 
 	return &Client{
-		httpClient:   httpClient,
-		transport:    transport,
-		auth:         authenticator,
-		log:          log,
-		versionCache: newVersionCache(),
-		breaker:      &circuitBreaker{},
-		maxRetries:   constants.DefaultMaxRetries,
+		httpClient: httpClient,
+		transport:  transport,
+		auth:       authenticator,
+		log:        log,
+		breaker:    &circuitBreaker{},
+		maxRetries: constants.DefaultMaxRetries,
 	}
 }
 
@@ -323,7 +321,7 @@ func (c *Client) doHTTPRequest(ctx context.Context, jsonBody []byte, opName stri
 		for k, v := range c.auth.GetAuthHeaders() {
 			req.Header.Set(k, v)
 		}
-		req.Header.Set("Client-Version", c.updateClientVersion(ctx))
+		req.Header.Set("Client-Version", c.auth.ClientVersion())
 
 		if !skipIntegrity {
 			if integrityToken, err := c.auth.FetchIntegrityToken(ctx); err != nil {

@@ -18,6 +18,7 @@ import (
 	"github.com/Guliveer/twitch-miner-go/internal/logger"
 	"github.com/Guliveer/twitch-miner-go/internal/miner"
 	"github.com/Guliveer/twitch-miner-go/internal/model"
+	"github.com/Guliveer/twitch-miner-go/internal/runtimecfg"
 	"github.com/Guliveer/twitch-miner-go/internal/server"
 	"github.com/Guliveer/twitch-miner-go/internal/updater"
 	"github.com/Guliveer/twitch-miner-go/internal/utils"
@@ -75,6 +76,12 @@ func main() {
 	fmt.Print(banner)
 	rootLog.Info("🚀 Starting Twitch Channel Points Miner (Go)", "version", version.String())
 
+	twitchRuntime, err := runtimecfg.LoadTwitchFromEnv()
+	if err != nil {
+		rootLog.Error("Missing Twitch runtime configuration", "error", err)
+		os.Exit(1)
+	}
+
 	// Check for updates in the background.
 	utils.SafeGo(func() {
 		info, err := updater.CheckForUpdate(context.Background(), version.Number)
@@ -122,15 +129,20 @@ func main() {
 		})
 	})
 
-	miners := make([]*miner.Miner, 0, len(configs))
+	type minerEntry struct {
+		cfg   *config.AccountConfig
+		miner *miner.Miner
+	}
+
+	miners := make([]minerEntry, 0, len(configs))
 	for _, cfg := range configs {
 		if !cfg.IsEnabled() {
 			rootLog.Info("Account is disabled, skipping", "account", cfg.Username)
 			continue
 		}
 		accountLog := rootLog.WithAccount(cfg.Username)
-		minerInstance := miner.NewMiner(cfg, accountLog)
-		miners = append(miners, minerInstance)
+		minerInstance := miner.NewMiner(cfg, accountLog, twitchRuntime)
+		miners = append(miners, minerEntry{cfg: cfg, miner: minerInstance})
 	}
 
 	addr := ":" + httpPort
@@ -145,16 +157,16 @@ func main() {
 
 	analyticsServer.SetStreamerFunc(func() []*model.Streamer {
 		var all []*model.Streamer
-		for _, minerInstance := range miners {
-			all = append(all, minerInstance.Streamers()...)
+		for _, entry := range miners {
+			all = append(all, entry.miner.Streamers()...)
 		}
 		return all
 	})
 
 	analyticsServer.SetNotifyTestFunc(func(ctx context.Context) []error {
 		var allErrs []error
-		for _, minerInstance := range miners {
-			d := minerInstance.NotifyDispatcher()
+		for _, entry := range miners {
+			d := entry.miner.NotifyDispatcher()
 			if d == nil || !d.HasNotifiers() {
 				continue
 			}
@@ -164,8 +176,8 @@ func main() {
 		if len(miners) > 0 && allErrs == nil {
 			// Check if any miner had notifiers at all.
 			hasAny := false
-			for _, minerInstance := range miners {
-				d := minerInstance.NotifyDispatcher()
+			for _, entry := range miners {
+				d := entry.miner.NotifyDispatcher()
 				if d != nil && d.HasNotifiers() {
 					hasAny = true
 					break
@@ -187,8 +199,9 @@ func main() {
 	rootLog.Info("🌐 Health/analytics server started", "addr", addr)
 
 	var wg sync.WaitGroup
-	for i, minerInstance := range miners {
-		cfg := configs[i]
+	for _, entry := range miners {
+		cfg := entry.cfg
+		minerInstance := entry.miner
 		accountLog := rootLog.WithAccount(cfg.Username)
 
 		wg.Add(1)

@@ -25,6 +25,7 @@ func (m *mockAuthProvider) Login(_ context.Context) error                       
 func (m *mockAuthProvider) AuthToken() string                                     { m.mu.Lock(); defer m.mu.Unlock(); return m.token }
 func (m *mockAuthProvider) UserID() string                                        { return m.userID }
 func (m *mockAuthProvider) GetAuthHeaders() map[string]string                     { return nil }
+func (m *mockAuthProvider) ClientVersion() string                                 { return "test-version" }
 func (m *mockAuthProvider) FetchIntegrityToken(_ context.Context) (string, error) { return "", nil }
 
 func (m *mockAuthProvider) RefreshToken(_ context.Context) error {
@@ -215,6 +216,7 @@ func (m *tokenChangingMock) Login(_ context.Context) error                      
 func (m *tokenChangingMock) AuthToken() string                                     { m.mu.Lock(); defer m.mu.Unlock(); return m.token }
 func (m *tokenChangingMock) UserID() string                                        { return "123" }
 func (m *tokenChangingMock) GetAuthHeaders() map[string]string                     { return nil }
+func (m *tokenChangingMock) ClientVersion() string                                 { return "test-version" }
 func (m *tokenChangingMock) FetchIntegrityToken(_ context.Context) (string, error) { return "", nil }
 
 func (m *tokenChangingMock) RefreshToken(_ context.Context) error {
