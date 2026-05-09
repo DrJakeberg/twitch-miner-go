@@ -102,14 +102,8 @@ func (cb *circuitBreaker) recordFailure() {
 	cb.consecutiveFails++
 	cb.lastFailure = time.Now()
 	if cb.consecutiveFails >= 10 {
-		multiplier := cb.consecutiveFails - 9
-		if multiplier > 10 {
-			multiplier = 10
-		}
-		backoff := time.Duration(multiplier) * 30 * time.Second
-		if backoff > 5*time.Minute {
-			backoff = 5 * time.Minute
-		}
+		multiplier := min(cb.consecutiveFails-9, 10)
+		backoff := min(time.Duration(multiplier)*30*time.Second, 5*time.Minute)
 		cb.cooldownUntil = time.Now().Add(backoff)
 	}
 	cb.mu.Unlock()

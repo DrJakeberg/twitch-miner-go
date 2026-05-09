@@ -205,7 +205,7 @@ func (m *Miner) resolveStreamers(ctx context.Context) error {
 	for _, r := range collected {
 		sortedResults[r.index] = r.streamer
 	}
-	for i := 0; i < len(usernames); i++ {
+	for i := range usernames {
 		if s, ok := sortedResults[i]; ok {
 			resolved = append(resolved, s)
 		}

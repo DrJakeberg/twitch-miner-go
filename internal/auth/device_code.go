@@ -156,7 +156,6 @@ func (a *Authenticator) pollForToken(ctx context.Context, deviceCode string, int
 			if tokenResp != nil {
 				return tokenResp, nil
 			}
-
 		}
 	}
 }

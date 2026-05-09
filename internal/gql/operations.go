@@ -743,10 +743,7 @@ func (c *Client) GetDropCampaignDetailsBatch(ctx context.Context, campaignIDs []
 	var results []json.RawMessage
 
 	for i := 0; i < len(campaignIDs); i += batchSize {
-		end := i + batchSize
-		if end > len(campaignIDs) {
-			end = len(campaignIDs)
-		}
+		end := min(i+batchSize, len(campaignIDs))
 		chunk := campaignIDs[i:end]
 
 		ops := make([]constants.GQLOperation, len(chunk))

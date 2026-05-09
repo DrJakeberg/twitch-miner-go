@@ -158,7 +158,6 @@ func (p *Pool) Run(ctx context.Context) error {
 
 	p.mu.Lock()
 	for _, conn := range p.conns {
-		conn := conn // capture for closure
 		p.startForwarder(ctx, conn)
 		g.Go(func() error {
 			return p.runConnection(ctx, conn)

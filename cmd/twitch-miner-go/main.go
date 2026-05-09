@@ -46,7 +46,7 @@ var subtitle = "⛏  twitch-miner-go " + version.String()
 func playStartupAnimation(colored bool) {
 	if colored {
 		spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			fmt.Fprintf(os.Stderr, "\r\033[38;5;129m%s Initializing...\033[0m", spinFrames[i%len(spinFrames)])
 			time.Sleep(80 * time.Millisecond)
 		}

@@ -458,17 +458,11 @@ func (b *Bet) Calculate(balance int) BetDecision {
 		chosen := b.Outcomes[b.Decision.Choice]
 		b.Decision.OutcomeID = chosen.ID
 
-		amount := int(float64(balance) * float64(b.Settings.Percentage) / 100.0)
-		if amount > b.Settings.MaxPoints {
-			amount = b.Settings.MaxPoints
-		}
+		amount := min(int(float64(balance)*float64(b.Settings.Percentage)/100.0), b.Settings.MaxPoints)
 
 		if b.Settings.StealthMode && amount >= chosen.TopPoints && chosen.TopPoints > 0 {
 			stealthReduction := 1.0 + rand.Float64()*4.0
-			amount = chosen.TopPoints - int(stealthReduction)
-			if amount < 10 {
-				amount = 10
-			}
+			amount = max(chosen.TopPoints-int(stealthReduction), 10)
 		}
 
 		b.Decision.Amount = amount
