@@ -131,13 +131,11 @@ func (b *Batcher) flush(ctx context.Context) {
 			continue
 		}
 
-		// Single entry — send as a regular (unbatched) message.
 		if len(entries) == 1 {
 			b.sendDirect(ctx, entries[0].event, title, entries[0].message)
 			continue
 		}
 
-		// Split into chunks of maxEntries.
 		for i := 0; i < len(entries); i += b.maxEntries {
 			end := min(i+b.maxEntries, len(entries))
 			chunk := entries[i:end]

@@ -122,7 +122,6 @@ func (tw *TeamWatcher) evaluate(
 		currentUsername := tw.teamStreamers[teamName]
 		tw.mu.Unlock()
 
-		// Check if the current streamer is still valid (online and still a team member).
 		if currentUsername != "" {
 			stillOnline := false
 			for _, s := range trackedStreamers {

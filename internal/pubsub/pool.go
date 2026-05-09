@@ -296,7 +296,7 @@ func (p *Pool) reconnect(ctx context.Context, oldConn *Connection) (*Connection,
 
 // startForwarder launches a goroutine that reads from a connection's messages
 // channel and forwards them to the pool's merged fan-in channel.
-// The goroutine exits when the connection's messages channel is closed or the
+// The goroutine exits when the messages channel is closed or the context is cancelled.
 func (p *Pool) startForwarder(ctx context.Context, conn *Connection) {
 	utils.SafeGo(func() {
 		for {

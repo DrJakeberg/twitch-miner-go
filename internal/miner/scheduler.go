@@ -38,6 +38,7 @@ func (m *Miner) runMinuteWatcher(ctx context.Context) error {
 }
 
 // logWatchingChanges compares the current set of watched streamers with the
+// previous set and logs which streamers started or stopped being watched.
 func (m *Miner) logWatchingChanges(toWatch []*model.Streamer) {
 	currentSet := make(map[string]bool, len(toWatch))
 	for _, s := range toWatch {
