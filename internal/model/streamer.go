@@ -93,7 +93,7 @@ func (s *Streamer) UpdateHistory(reasonCode string, earned int, counter int) {
 	s.History[reasonCode].Amount += earned
 
 	if reasonCode == "WATCH_STREAK" {
-		s.Stream.WatchStreakMissing = false
+		s.Stream.IsWatchStreakMissing = false
 	}
 }
 

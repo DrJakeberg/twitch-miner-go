@@ -40,12 +40,12 @@ func TestSelectStreamersToWatchPrioritizesMissingStreak(t *testing.T) {
 	t.Parallel()
 
 	streak := makeOnlineStreamer("streak")
-	streak.Stream.WatchStreakMissing = true
+	streak.Stream.IsWatchStreakMissing = true
 	streak.Stream.MinuteWatched = 2
 	streak.Settings.WatchStreak = true
 
 	other := makeOnlineStreamer("other")
-	other.Stream.WatchStreakMissing = false
+	other.Stream.IsWatchStreakMissing = false
 
 	selected := SelectStreamersToWatch(
 		[]*model.Streamer{other, streak},

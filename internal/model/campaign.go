@@ -11,7 +11,7 @@ type Campaign struct {
 	Game               *GameInfo `json:"game,omitempty"`
 	Name               string    `json:"name"`
 	Status             string    `json:"status"`
-	InInventory        bool      `json:"in_inventory"`
+	IsInInventory        bool      `json:"in_inventory"`
 	EndAt              time.Time `json:"end_at"`
 	StartAt            time.Time `json:"start_at"`
 	IsWithinTimeWindow bool      `json:"dt_match"`
@@ -61,5 +61,5 @@ func (c *Campaign) String() string {
 		gameName = c.Game.DisplayName
 	}
 	return fmt.Sprintf("Campaign(id=%s, name=%s, game=%s, in_inventory=%t)",
-		c.ID, c.Name, gameName, c.InInventory)
+		c.ID, c.Name, gameName, c.IsInInventory)
 }

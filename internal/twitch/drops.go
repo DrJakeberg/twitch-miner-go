@@ -122,7 +122,7 @@ func (c *Client) syncCampaignsWithInventory(ctx context.Context, campaigns []*mo
 		campaign.ClearDrops()
 		for _, progress := range inventory.DropCampaignsInProgress {
 			if progress.ID == campaign.ID {
-				campaigns[i].InInventory = true
+				campaigns[i].IsInInventory = true
 				for _, timeDrop := range progress.TimeBasedDrops {
 					for _, drop := range campaigns[i].Drops {
 						if drop.ID == timeDrop.ID && timeDrop.Self != nil {

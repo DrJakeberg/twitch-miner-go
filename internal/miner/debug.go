@@ -23,7 +23,7 @@ type DebugWatchingEntry struct {
 	Username           string  `json:"username"`
 	DisplayName        string  `json:"display_name,omitempty"`
 	ChannelPoints      int     `json:"channel_points"`
-	WatchStreakMissing bool    `json:"watch_streak_missing"`
+	IsWatchStreakMissing bool    `json:"watch_streak_missing"`
 	MinuteWatched      float64 `json:"minute_watched"`
 	DropsEnabled       bool    `json:"drops_enabled"`
 }
@@ -58,7 +58,7 @@ func (m *Miner) DebugSnapshot() DebugSnapshot {
 			Username:           streamer.Username,
 			DisplayName:        streamer.DisplayName,
 			ChannelPoints:      streamer.ChannelPoints,
-			WatchStreakMissing: streamer.Stream != nil && streamer.Stream.WatchStreakMissing,
+			IsWatchStreakMissing: streamer.Stream != nil && streamer.Stream.IsWatchStreakMissing,
 			DropsEnabled:       streamer.Settings != nil && streamer.Settings.ClaimDrops,
 		}
 		if streamer.Stream != nil {

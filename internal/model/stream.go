@@ -13,7 +13,7 @@ type Stream struct {
 	Game  *GameInfo `json:"game,omitempty"`
 	Tags  []Tag     `json:"tags,omitempty"`
 
-	DropsTags   bool       `json:"drops_tags"`
+	HasDropsTag   bool       `json:"drops_tags"`
 	Campaigns   []Campaign `json:"campaigns,omitempty"`
 	CampaignIDs []string   `json:"campaign_ids,omitempty"`
 
@@ -22,7 +22,7 @@ type Stream struct {
 	SpadeURL string         `json:"spade_url,omitempty"`
 	Payload  map[string]any `json:"payload,omitempty"`
 
-	WatchStreakMissing bool    `json:"watch_streak_missing"`
+	IsWatchStreakMissing bool    `json:"watch_streak_missing"`
 	MinuteWatched      float64 `json:"minute_watched"`
 
 	lastUpdate             time.Time
@@ -66,11 +66,11 @@ func (s *Stream) Update(broadcastID, title string, game *GameInfo, tags []Tag, v
 	}
 	s.ViewersCount = viewersCount
 
-	s.DropsTags = false
+	s.HasDropsTag = false
 	if s.Game != nil {
 		for _, tag := range s.Tags {
 			if tag.ID == dropID {
-				s.DropsTags = true
+				s.HasDropsTag = true
 				break
 			}
 		}
@@ -144,7 +144,7 @@ func (s *Stream) UpdateElapsed() time.Duration {
 
 // InitWatchStreak resets the watch streak tracking state.
 func (s *Stream) InitWatchStreak() {
-	s.WatchStreakMissing = true
+	s.IsWatchStreakMissing = true
 	s.MinuteWatched = 0
 	s.minuteWatchedTimestamp = time.Time{}
 }

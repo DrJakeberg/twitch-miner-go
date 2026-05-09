@@ -249,7 +249,7 @@ func (s *AnalyticsServer) handleStreamer(w http.ResponseWriter, r *http.Request)
 					BroadcastID:  streamer.Stream.BroadcastID,
 					Title:        streamer.Stream.Title,
 					ViewersCount: streamer.Stream.ViewersCount,
-					DropsTags:    streamer.Stream.DropsTags,
+					HasDropsTag:    streamer.Stream.HasDropsTag,
 				}
 				if streamer.Stream.Game != nil {
 					detail.Stream.Game = streamer.Stream.Game.DisplayName
@@ -507,7 +507,7 @@ type streamInfo struct {
 	Title        string `json:"title,omitempty"`
 	Game         string `json:"game,omitempty"`
 	ViewersCount int    `json:"viewers_count"`
-	DropsTags    bool   `json:"drops_tags"`
+	HasDropsTag    bool   `json:"drops_tags"`
 }
 
 type overallStats struct {

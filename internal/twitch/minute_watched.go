@@ -324,7 +324,7 @@ func SelectStreamersToWatch(streamers []*model.Streamer, priorities []model.Prio
 				s := streamers[idx]
 				s.Mu.RLock()
 				watchStreak := s.Settings != nil && s.Settings.WatchStreak
-				missing := s.Stream.WatchStreakMissing
+				missing := s.Stream.IsWatchStreakMissing
 				offlineAt := s.OfflineAt
 				minuteWatched := s.Stream.MinuteWatched
 				s.Mu.RUnlock()
