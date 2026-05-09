@@ -9,10 +9,6 @@ category_watcher:
   enabled: true
   poll_interval: 60s
   drops_only: true
-  campaign_reminders:
-    - on_detection
-    - 3d
-    - 1d
   categories:
     - slug: tom-clancys-rainbow-six-siege
       drops_only: false
@@ -64,8 +60,6 @@ notifications:
     enabled: true
     events:
       - DROP_CLAIM
-      - CAMPAIGN_STARTED
-      - CAMPAIGN_REMINDER
       - GIFTED_SUB
       - MINER_STARTED
       - MINER_STOPPED

@@ -33,17 +33,9 @@ const VALID_NAME = /^[a-zA-Z0-9_-]+$/;
 
 // Matches Go's time.ParseDuration (sequences of <number><unit>, unit ∈ ns/us/µs/ms/s/m/h).
 const DURATION_RE = /^(?:\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h))+$/;
-// Campaign reminders additionally accept the literal "on_detection" or "Nd" (days).
-const REMINDER_DURATION_RE = /^(?:\d+(?:\.\d+)?d)$|^(?:\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h))+$/;
 
 function isValidDuration(s) {
   return typeof s === 'string' && DURATION_RE.test(s.trim());
-}
-
-function isValidReminderValue(s) {
-  if (typeof s !== 'string') return false;
-  const t = s.trim();
-  return t === 'on_detection' || REMINDER_DURATION_RE.test(t);
 }
 
 const SCHEMA = {
@@ -65,7 +57,6 @@ const SCHEMA = {
     'BET_WIN', 'BET_LOSE', 'BET_REFUND', 'BET_FILTERS', 'BET_GENERAL', 'BET_FAILED', 'BET_START',
     'BONUS_CLAIM', 'MOMENT_CLAIM', 'JOIN_RAID',
     'DROP_CLAIM', 'DROP_STATUS',
-    'CAMPAIGN_STARTED', 'CAMPAIGN_REMINDER',
     'CHAT_MENTION', 'GIFTED_SUB',
     'MINER_STARTED', 'MINER_STOPPED', 'MINER_CRASHED',
     'TEST',
@@ -215,22 +206,6 @@ function validateConfig(config) {
       validateDurationField(b.interval, `notifications.${p}.batch.interval`, errors);
     }
   });
-
-  if (config.category_watcher && Array.isArray(config.category_watcher.campaign_reminders)) {
-    config.category_watcher.campaign_reminders.forEach((v, i) => {
-      if (!isValidReminderValue(v)) errors.push(`category_watcher.campaign_reminders[${i}] "${v}" is not valid (use e.g. 15m, 3d, or on_detection)`);
-    });
-  }
-
-  if (config.category_watcher && Array.isArray(config.category_watcher.categories)) {
-    config.category_watcher.categories.forEach((cat, ci) => {
-      if (Array.isArray(cat.campaign_reminders)) {
-        cat.campaign_reminders.forEach((v, i) => {
-          if (!isValidReminderValue(v)) errors.push(`category_watcher.categories[${ci}].campaign_reminders[${i}] "${v}" is not valid`);
-        });
-      }
-    });
-  }
 
   return errors;
 }

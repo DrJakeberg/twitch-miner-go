@@ -301,7 +301,6 @@
     setChecked('cfg-cw-enabled', cw.enabled || false);
     setVal('cfg-cw-interval', cw.poll_interval || schema.defaults.category_watcher_poll_interval);
     setChecked('cfg-cw-drops-only', cw.drops_only || false);
-    renderTagList('cfg-cw-reminders', cw.campaign_reminders || [], { reorderable: true });
     renderCategories(cw.categories || []);
 
     const tw = config.team_watcher || {};
@@ -383,8 +382,6 @@
       const cwInt = getVal('cfg-cw-interval');
       if (cwInt && cwInt !== schema.defaults.category_watcher_poll_interval) config.category_watcher.poll_interval = cwInt;
       if (getChecked('cfg-cw-drops-only')) config.category_watcher.drops_only = true;
-      const reminders = getTagValues('cfg-cw-reminders');
-      if (reminders.length > 0) config.category_watcher.campaign_reminders = reminders;
       const cats = collectCategories();
       if (cats.length > 0) config.category_watcher.categories = cats;
     }
@@ -465,9 +462,6 @@
       const dropsOnly = item.querySelector('.cat-drops-only');
       if (dropsOnly && dropsOnly.value === 'true') cat.drops_only = true;
       else if (dropsOnly && dropsOnly.value === 'false') cat.drops_only = false;
-      const reminders = [];
-      item.querySelectorAll('.cat-reminders .tag').forEach((t) => reminders.push(t.dataset.value));
-      if (reminders.length > 0) cat.campaign_reminders = reminders;
       return cat;
     }).filter((c) => c.slug);
   }
@@ -760,10 +754,6 @@
     cat = cat || {};
     const handle = dragHandle();
 
-    const expandBtn = el('button', {
-      type: 'button', className: 'item-expand', title: 'Toggle per-category overrides',
-    }, '\u25b6');
-
     const slugInput = el('input', {
       type: 'text', className: 'form-input input-sm cat-slug',
       placeholder: 'category-slug', value: cat.slug || '',
@@ -776,62 +766,11 @@
       onclick: function () { this.closest('.dynamic-item').remove(); markDirty(); },
     }, '\u00d7');
 
-    const fields = el('div', { className: 'item-fields' }, [handle, expandBtn, slugInput, triEl, triLabel]);
-
-    const remindersList = el('div', { className: 'tag-list cat-reminders', dataset: { reorderable: '1' } });
-    const remindersInput = el('input', {
-      type: 'text', className: 'form-input input-sm cat-reminder-input',
-      placeholder: 'e.g. on_detection, 3d, 1h',
-    });
-    const remindersError = el('div', { className: 'duration-error hidden' });
-    const remindersAddBtn = el('button', {
-      type: 'button', className: 'btn btn-ghost btn-sm',
-    }, '+ Add');
-
-    function addReminder() {
-      const v = remindersInput.value.trim();
-      if (!v) return;
-      if (!isValidReminderValue(v)) {
-        remindersError.textContent = 'Invalid value. Use durations like "15m", "3d" or "on_detection".';
-        remindersError.classList.remove('hidden');
-        return;
-      }
-      remindersError.classList.add('hidden');
-      addTag(remindersList, v);
-      remindersInput.value = '';
-    }
-    remindersAddBtn.addEventListener('click', addReminder);
-    remindersInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); addReminder(); }
-    });
-
-    const detailGrid = el('div', { style: 'display:flex;flex-direction:column;gap:0.4rem;margin-top:0.5rem' }, [
-      el('label', { style: 'font-size:0.72rem;color:var(--text-secondary);font-weight:600' }, 'Campaign Reminders override'),
-      remindersList,
-      el('div', { className: 'tag-add-row' }, [remindersInput, remindersAddBtn]),
-      remindersError,
-    ]);
-    const details = el('div', { className: 'item-details' }, [detailGrid]);
-
-    expandBtn.addEventListener('click', () => {
-      expandBtn.classList.toggle('open');
-      details.classList.toggle('open');
-    });
-
-    const item = el('div', { className: 'dynamic-item', style: 'flex-direction:column' }, [
-      el('div', { style: 'display:flex;align-items:center;gap:0.5rem;width:100%' }, [fields, removeBtn]),
-      details,
-    ]);
+    const fields = el('div', { className: 'item-fields' }, [handle, slugInput, triEl, triLabel]);
+    const item = el('div', { className: 'dynamic-item' }, [fields, removeBtn]);
     container.appendChild(item);
 
     renderTriToggleInline(triEl, cat.drops_only);
-    (cat.campaign_reminders || []).forEach((v) => addTag(remindersList, v));
-    if ((cat.campaign_reminders || []).length > 0) {
-      expandBtn.classList.add('open');
-      details.classList.add('open');
-    }
-
-    makeReorderable(remindersList, '.tag', markDirty);
   }
 
   function renderTriToggleInline(container, value) {
@@ -1080,19 +1019,10 @@
   // one of ns/us/µs/ms/s/m/h. Numbers can be integer or decimal.
   const DURATION_UNIT = '(?:ns|us|µs|ms|s|m|h)';
   const DURATION_RE = new RegExp('^(?:\\d+(?:\\.\\d+)?' + DURATION_UNIT + ')+$');
-  // Campaign reminders additionally support "d" (days) and the literal "on_detection".
-  const REMINDER_DURATION_RE = /^(?:\d+(?:\.\d+)?d)$|^(?:\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h))+$/;
 
   function isValidDuration(s) {
     if (typeof s !== 'string') return false;
     return DURATION_RE.test(s.trim());
-  }
-
-  function isValidReminderValue(s) {
-    if (typeof s !== 'string') return false;
-    const t = s.trim();
-    if (t === 'on_detection') return true;
-    return REMINDER_DURATION_RE.test(t);
   }
 
   function validateDurationInput(inputEl) {
@@ -1147,15 +1077,6 @@
     validateDurationField(config.category_watcher?.poll_interval, 'Category watcher poll_interval', errors);
     validateDurationField(config.team_watcher?.poll_interval, 'Team watcher poll_interval', errors);
     validateDurationField(config.notifications?.batch?.interval, 'Global batch interval', errors);
-
-    (config.category_watcher?.campaign_reminders || []).forEach((v, i) => {
-      if (!isValidReminderValue(v)) errors.push('Campaign reminder #' + (i + 1) + ' "' + v + '" is invalid (use e.g. 15m, 3d, or on_detection)');
-    });
-    (config.category_watcher?.categories || []).forEach((cat, ci) => {
-      (cat.campaign_reminders || []).forEach((v, i) => {
-        if (!isValidReminderValue(v)) errors.push('Category "' + cat.slug + '" reminder #' + (i + 1) + ' "' + v + '" is invalid');
-      });
-    });
 
     return errors;
   }

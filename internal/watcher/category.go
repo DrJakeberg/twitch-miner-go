@@ -16,10 +16,9 @@ import (
 )
 
 type categoryEntry struct {
-	Slug              string
-	GameID            string
-	DropsOnly         *bool
-	CampaignReminders []string
+	Slug      string
+	GameID    string
+	DropsOnly *bool
 }
 
 // CategoryWatcher polls Twitch GQL for top streams in configured categories
@@ -27,12 +26,11 @@ type categoryEntry struct {
 type CategoryWatcher struct {
 	mu sync.Mutex
 
-	gqlClient                *gql.Client
-	log                      *logger.Logger
-	categories               []categoryEntry
-	globalDropsOnly          bool
-	globalCampaignReminders  []string
-	pollInterval             time.Duration
+	gqlClient         *gql.Client
+	log               *logger.Logger
+	categories        []categoryEntry
+	globalDropsOnly   bool
+	pollInterval      time.Duration
 	blacklist         map[string]bool
 	categoryBlacklist map[string]bool
 	streamerDefaults  *model.StreamerSettings
@@ -52,9 +50,8 @@ func NewCategoryWatcher(
 	categories := make([]categoryEntry, 0, len(cfg.Categories))
 	for _, categoryCfg := range cfg.Categories {
 		categories = append(categories, categoryEntry{
-			Slug:              categoryCfg.Slug,
-			DropsOnly:         categoryCfg.DropsOnly,
-			CampaignReminders: categoryCfg.CampaignReminders,
+			Slug:      categoryCfg.Slug,
+			DropsOnly: categoryCfg.DropsOnly,
 		})
 	}
 
@@ -79,16 +76,15 @@ func NewCategoryWatcher(
 	}
 
 	return &CategoryWatcher{
-		gqlClient:                gqlClient,
-		log:                      log,
-		categories:               categories,
-		globalDropsOnly:          cfg.DropsOnly,
-		globalCampaignReminders:  cfg.CampaignReminders,
-		pollInterval:             interval,
-		blacklist:                blacklistMap,
-		categoryBlacklist:        catBlacklistMap,
-		streamerDefaults:         streamerDefaults,
-		categoryStreamers:        catStreamers,
+		gqlClient:         gqlClient,
+		log:               log,
+		categories:        categories,
+		globalDropsOnly:   cfg.DropsOnly,
+		pollInterval:      interval,
+		blacklist:         blacklistMap,
+		categoryBlacklist: catBlacklistMap,
+		streamerDefaults:  streamerDefaults,
+		categoryStreamers: catStreamers,
 	}
 }
 
@@ -167,11 +163,6 @@ func (cw *CategoryWatcher) evaluate(
 				cw.categoryStreamers[cat.Slug] = ""
 			}
 			cw.mu.Unlock()
-
-			// Propagate campaign reminders to covering regular streamers
-			// so that checkCampaignReminders can find them even when no
-			// category-watched streamer exists for this slot.
-			cw.propagateCampaignReminders(trackedStreamers, cat)
 
 			continue
 		}
@@ -257,17 +248,11 @@ func (cw *CategoryWatcher) evaluate(
 			continue
 		}
 
-		reminderRaw := cw.globalCampaignReminders
-		if len(cat.CampaignReminders) > 0 {
-			reminderRaw = cat.CampaignReminders
-		}
-
 		streamer := model.NewStreamer(candidate.Username)
 		streamer.ChannelID = candidate.ChannelID
 		streamer.DisplayName = candidate.DisplayName
 		streamer.IsCategoryWatched = true
 		streamer.CategorySlug = cat.Slug
-		streamer.CampaignReminders = config.ParseCampaignReminders(reminderRaw)
 
 		streamer.IsOnline = true
 		streamer.OnlineAt = time.Now()
@@ -317,32 +302,6 @@ func (cw *CategoryWatcher) evaluate(
 			"category", cat.Slug,
 			"viewers", candidate.ViewersCount,
 		)
-	}
-}
-
-// propagateCampaignReminders sets campaign reminders on regular streamers
-// that match a category. This ensures reminders fire even when no
-// category-watched streamer exists because the category is already covered.
-func (cw *CategoryWatcher) propagateCampaignReminders(streamers []*model.Streamer, cat *categoryEntry) {
-	reminderRaw := cw.globalCampaignReminders
-	if len(cat.CampaignReminders) > 0 {
-		reminderRaw = cat.CampaignReminders
-	}
-	if len(reminderRaw) == 0 {
-		return
-	}
-
-	reminderCfg := config.ParseCampaignReminders(reminderRaw)
-	if !reminderCfg.HasReminders() {
-		return
-	}
-
-	for _, s := range streamers {
-		s.Mu.Lock()
-		if !s.IsCategoryWatched && s.IsOnline && cw.streamerMatchesCategory(s, cat) {
-			s.CampaignReminders = reminderCfg
-		}
-		s.Mu.Unlock()
 	}
 }
 
