@@ -76,33 +76,24 @@ func (tw *TeamWatcher) Run(
 	removeStreamer func(string, string),
 	getTrackedStreamers func() []*model.Streamer,
 ) error {
-	tw.log.Info("👥 TeamWatcher started",
-		"teams", len(tw.teams),
-		"poll_interval", tw.pollInterval,
-	)
-
-	tw.evaluate(ctx, addStreamer, removeStreamer, getTrackedStreamers)
-
-	ticker := time.NewTicker(tw.pollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			tw.log.Info("👥 TeamWatcher stopping")
+	return pollLoop(ctx, tw.log, tw.pollInterval,
+		"👥 TeamWatcher started",
+		"👥 TeamWatcher stopping",
+		[]any{"teams", len(tw.teams), "poll_interval", tw.pollInterval},
+		func(ctx context.Context) {
+			tw.evaluate(ctx, addStreamer, removeStreamer, getTrackedStreamers)
+		},
+		func() {
 			tw.mu.Lock()
+			defer tw.mu.Unlock()
 			for team, username := range tw.teamStreamers {
 				if username != "" {
 					removeStreamer(username, "team_watcher_shutdown")
 					tw.teamStreamers[team] = ""
 				}
 			}
-			tw.mu.Unlock()
-			return ctx.Err()
-		case <-ticker.C:
-			tw.evaluate(ctx, addStreamer, removeStreamer, getTrackedStreamers)
-		}
-	}
+		},
+	)
 }
 
 func (tw *TeamWatcher) evaluate(
