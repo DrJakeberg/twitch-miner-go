@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
+	"slices"
 	"time"
 
 	"github.com/Guliveer/twitch-miner-go/internal/model"
@@ -330,17 +331,9 @@ func parseCampaign(raw json.RawMessage) (*model.Campaign, error) {
 }
 
 func campaignMatchesStreamer(campaign *model.Campaign, streamer *model.Streamer) bool {
-	if campaign.Game != nil && streamer.Stream.Game != nil {
-		if campaign.Game.Name != streamer.Stream.Game.Name {
-			return false
-		}
+	if campaign.Game != nil && streamer.Stream.Game != nil &&
+		campaign.Game.Name != streamer.Stream.Game.Name {
+		return false
 	}
-
-	for _, id := range streamer.Stream.CampaignIDs {
-		if id == campaign.ID {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(streamer.Stream.CampaignIDs, campaign.ID)
 }
