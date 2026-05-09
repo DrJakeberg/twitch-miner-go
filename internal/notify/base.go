@@ -1,6 +1,10 @@
 package notify
 
-import "github.com/Guliveer/twitch-miner-go/internal/model"
+import (
+	"slices"
+
+	"github.com/Guliveer/twitch-miner-go/internal/model"
+)
 
 // baseNotifier provides shared boilerplate for all notification providers.
 // Embed it in concrete notifier structs to eliminate duplicated Name(),
@@ -22,5 +26,5 @@ func (b *baseNotifier) ShouldNotify(event model.Event) bool {
 	if len(b.events) == 0 {
 		return true
 	}
-	return containsEvent(b.events, event)
+	return slices.Contains(b.events, event)
 }

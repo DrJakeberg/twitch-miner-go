@@ -250,12 +250,3 @@ func parseEvents(names []string) []model.Event {
 	}
 	return events
 }
-
-func containsEvent(events []model.Event, event model.Event) bool {
-	for _, ev := range events {
-		if ev == event {
-			return true
-		}
-	}
-	return false
-}

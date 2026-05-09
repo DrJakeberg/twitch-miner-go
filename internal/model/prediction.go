@@ -501,7 +501,6 @@ type EventPrediction struct {
 	PredictionWindowSeconds float64          `json:"prediction_window_seconds"`
 	Status                  string           `json:"status"`
 	Result                  PredictionResult `json:"result"`
-	BoxFillable             bool             `json:"box_fillable"`
 	ScheduledFor            time.Time        `json:"scheduled_for"`
 	BetConfirmed            bool             `json:"bet_confirmed"`
 	BetPlaced               bool             `json:"bet_placed"`
