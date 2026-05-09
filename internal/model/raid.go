@@ -2,7 +2,7 @@ package model
 
 // Raid represents an active raid event on a channel.
 type Raid struct {
-	RaidID string `json:"raid_id"`
+	RaidID      string `json:"raid_id"`
 	TargetLogin string `json:"target_login"`
 }
 

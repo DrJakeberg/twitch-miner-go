@@ -93,10 +93,12 @@ func (m *mockTransport) callCount(op string) int {
 // mockAuthProvider satisfies auth.Provider for tests.
 type mockAuthProvider struct{}
 
-func (m *mockAuthProvider) Login(_ context.Context) error                         { return nil }
-func (m *mockAuthProvider) AuthToken() string                                     { return "test-token" }
-func (m *mockAuthProvider) UserID() string                                        { return "12345" }
-func (m *mockAuthProvider) GetAuthHeaders() map[string]string                     { return map[string]string{"Authorization": "OAuth test"} }
+func (m *mockAuthProvider) Login(_ context.Context) error { return nil }
+func (m *mockAuthProvider) AuthToken() string             { return "test-token" }
+func (m *mockAuthProvider) UserID() string                { return "12345" }
+func (m *mockAuthProvider) GetAuthHeaders() map[string]string {
+	return map[string]string{"Authorization": "OAuth test"}
+}
 func (m *mockAuthProvider) FetchIntegrityToken(_ context.Context) (string, error) { return "", nil }
 func (m *mockAuthProvider) RefreshToken(_ context.Context) error                  { return nil }
 func (m *mockAuthProvider) ClientVersion() string                                 { return "test" }
@@ -362,4 +364,3 @@ func TestClaimAllDrops_EmptyInventory(t *testing.T) {
 		t.Fatalf("expected 0 claim calls for empty inventory, got %d", got)
 	}
 }
-

@@ -7,31 +7,31 @@ import (
 
 // Campaign represents a Twitch drop campaign.
 type Campaign struct {
-	ID string `json:"id"`
-	Game *GameInfo `json:"game,omitempty"`
-	Name string `json:"name"`
-	Status string `json:"status"`
-	InInventory bool `json:"in_inventory"`
-	EndAt time.Time `json:"end_at"`
-	StartAt time.Time `json:"start_at"`
-	IsWithinTimeWindow bool `json:"dt_match"`
-	Drops []*Drop `json:"drops,omitempty"`
-	Channels []string `json:"channels,omitempty"`
+	ID                 string    `json:"id"`
+	Game               *GameInfo `json:"game,omitempty"`
+	Name               string    `json:"name"`
+	Status             string    `json:"status"`
+	InInventory        bool      `json:"in_inventory"`
+	EndAt              time.Time `json:"end_at"`
+	StartAt            time.Time `json:"start_at"`
+	IsWithinTimeWindow bool      `json:"dt_match"`
+	Drops              []*Drop   `json:"drops,omitempty"`
+	Channels           []string  `json:"channels,omitempty"`
 }
 
 // NewCampaign creates a Campaign from raw API data.
 func NewCampaign(id, name, status string, game *GameInfo, startAt, endAt time.Time, channels []string) *Campaign {
 	now := time.Now()
 	return &Campaign{
-		ID:       id,
-		Game:     game,
-		Name:     name,
-		Status:   status,
-		StartAt:  startAt,
-		EndAt:    endAt,
-		IsWithinTimeWindow:  startAt.Before(now) && now.Before(endAt),
-		Channels: channels,
-		Drops:    make([]*Drop, 0),
+		ID:                 id,
+		Game:               game,
+		Name:               name,
+		Status:             status,
+		StartAt:            startAt,
+		EndAt:              endAt,
+		IsWithinTimeWindow: startAt.Before(now) && now.Before(endAt),
+		Channels:           channels,
+		Drops:              make([]*Drop, 0),
 	}
 }
 

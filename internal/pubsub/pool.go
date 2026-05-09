@@ -26,15 +26,15 @@ type MessageHandler interface {
 type Pool struct {
 	mu sync.Mutex
 
-	conns []*Connection
-	auth auth.Provider
-	log *logger.Logger
+	conns   []*Connection
+	auth    auth.Provider
+	log     *logger.Logger
 	handler MessageHandler
 
 	merged chan *model.Message
 
 	maxTopics int
-	maxConns int
+	maxConns  int
 }
 
 // NewPool creates a new PubSub connection pool.

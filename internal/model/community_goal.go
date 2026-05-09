@@ -8,13 +8,13 @@ import (
 
 // CommunityGoal represents a channel community goal.
 type CommunityGoal struct {
-	GoalID string `json:"goal_id"`
-	Title string `json:"title"`
-	IsInStock bool `json:"is_in_stock"`
-	PointsContributed int `json:"points_contributed"`
-	AmountNeeded int `json:"amount_needed"`
-	PerStreamUserMaxContribution int `json:"per_stream_user_maximum_contribution"`
-	Status string `json:"status"`
+	GoalID                       string `json:"goal_id"`
+	Title                        string `json:"title"`
+	IsInStock                    bool   `json:"is_in_stock"`
+	PointsContributed            int    `json:"points_contributed"`
+	AmountNeeded                 int    `json:"amount_needed"`
+	PerStreamUserMaxContribution int    `json:"per_stream_user_maximum_contribution"`
+	Status                       string `json:"status"`
 }
 
 // NewCommunityGoal creates a new CommunityGoal.
@@ -74,4 +74,3 @@ func (cg *CommunityGoal) String() string {
 	return fmt.Sprintf("CommunityGoal(goal_id=%s, title=%s, is_in_stock=%t, points_contributed=%d, amount_needed=%d, status=%s)",
 		cg.GoalID, cg.Title, cg.IsInStock, cg.PointsContributed, cg.AmountNeeded, cg.Status)
 }
-

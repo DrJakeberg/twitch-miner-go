@@ -25,6 +25,6 @@ type API interface {
 	GetFollowers(ctx context.Context, limit int, order string) ([]string, error)
 	CheckViewerIsMod(ctx context.Context, streamer *model.Streamer)
 	RefreshSpadeURL(ctx context.Context, s *model.Streamer) error // re-fetch spade URL on demand
-	GQLClient() *gql.Client      // expose GQL client for category watcher
-	AuthProvider() auth.Provider  // expose auth provider for PubSub/chat
+	GQLClient() *gql.Client                                       // expose GQL client for category watcher
+	AuthProvider() auth.Provider                                  // expose auth provider for PubSub/chat
 }

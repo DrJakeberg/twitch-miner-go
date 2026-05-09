@@ -132,9 +132,9 @@ func (m *Miner) resolveStreamers(ctx context.Context) error {
 				existing[u] = true
 			}
 			for _, followerLogin := range followers {
-					followerLower := strings.ToLower(followerLogin)
-					if !existing[followerLower] && !blacklist[followerLower] {
-						usernames = append(usernames, followerLower)
+				followerLower := strings.ToLower(followerLogin)
+				if !existing[followerLower] && !blacklist[followerLower] {
+					usernames = append(usernames, followerLower)
 				}
 			}
 		}

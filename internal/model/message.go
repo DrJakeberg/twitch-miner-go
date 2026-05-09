@@ -12,10 +12,10 @@ type MessageType string
 // Message types for PubSub events.
 const (
 	// Points-related messages
-	MsgTypePointsEarned    MessageType = "points-earned"
-	MsgTypePointsSpent     MessageType = "points-spent"
-	MsgTypeClaimAvailable  MessageType = "claim-available"
-	MsgTypeClaimClaimed    MessageType = "claim-claimed"
+	MsgTypePointsEarned   MessageType = "points-earned"
+	MsgTypePointsSpent    MessageType = "points-spent"
+	MsgTypeClaimAvailable MessageType = "claim-available"
+	MsgTypeClaimClaimed   MessageType = "claim-claimed"
 
 	// Prediction messages
 	MsgTypePredictionEvent  MessageType = "event-created"
@@ -24,14 +24,14 @@ const (
 	MsgTypePredictionResult MessageType = "event-end"
 
 	// Stream messages
-	MsgTypeStreamUp       MessageType = "stream-up"
-	MsgTypeStreamDown     MessageType = "stream-down"
-	MsgTypeViewCount      MessageType = "viewcount"
+	MsgTypeStreamUp   MessageType = "stream-up"
+	MsgTypeStreamDown MessageType = "stream-down"
+	MsgTypeViewCount  MessageType = "viewcount"
 
 	// Raid messages
-	MsgTypeRaidUpdate     MessageType = "raid_update_v2"
-	MsgTypeRaidGo         MessageType = "raid_go_v2"
-	MsgTypeRaidCancel     MessageType = "raid_cancel_v2"
+	MsgTypeRaidUpdate MessageType = "raid_update_v2"
+	MsgTypeRaidGo     MessageType = "raid_go_v2"
+	MsgTypeRaidCancel MessageType = "raid_cancel_v2"
 
 	// Moment messages
 	MsgTypeMomentAvailable MessageType = "active"
@@ -43,14 +43,14 @@ const (
 
 // Message represents a parsed PubSub message.
 type Message struct {
-	Topic string `json:"topic"`
-	TopicUser string `json:"topic_user"`
+	Topic      string         `json:"topic"`
+	TopicUser  string         `json:"topic_user"`
 	RawMessage map[string]any `json:"message"`
-	Type MessageType `json:"type"`
-	Data map[string]any `json:"data,omitempty"`
-	Timestamp time.Time `json:"timestamp"`
-	ChannelID string `json:"channel_id"`
-	Identifier string `json:"identifier"`
+	Type       MessageType    `json:"type"`
+	Data       map[string]any `json:"data,omitempty"`
+	Timestamp  time.Time      `json:"timestamp"`
+	ChannelID  string         `json:"channel_id"`
+	Identifier string         `json:"identifier"`
 }
 
 // ParseMessage creates a Message from raw PubSub data.

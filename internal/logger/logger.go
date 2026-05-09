@@ -70,12 +70,12 @@ type NotifyFunc func(ctx context.Context, message string, event model.Event, met
 
 // Config holds logger configuration options.
 type Config struct {
-	Level slog.Level
-	FileLevel slog.Level
-	Colored bool
-	LogDir string
+	Level       slog.Level
+	FileLevel   slog.Level
+	Colored     bool
+	LogDir      string
 	AccountName string
-	NotifyFn NotifyFunc
+	NotifyFn    NotifyFunc
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -212,7 +212,6 @@ func ParseLevel(s string) slog.Level {
 	}
 }
 
-
 type colorHandler struct {
 	mu          sync.Mutex
 	writer      io.Writer
@@ -325,7 +324,6 @@ func (h *colorHandler) levelColor(level slog.Level) string {
 		return colorCyan
 	}
 }
-
 
 type multiHandler struct {
 	handlers []slog.Handler

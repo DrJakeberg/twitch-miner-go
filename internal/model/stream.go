@@ -9,37 +9,37 @@ import (
 type Stream struct {
 	BroadcastID string `json:"broadcast_id,omitempty"`
 
-	Title string `json:"title,omitempty"`
-	Game *GameInfo `json:"game,omitempty"`
-	Tags []Tag `json:"tags,omitempty"`
+	Title string    `json:"title,omitempty"`
+	Game  *GameInfo `json:"game,omitempty"`
+	Tags  []Tag     `json:"tags,omitempty"`
 
-	DropsTags bool `json:"drops_tags"`
-	Campaigns []Campaign `json:"campaigns,omitempty"`
-	CampaignIDs []string `json:"campaign_ids,omitempty"`
+	DropsTags   bool       `json:"drops_tags"`
+	Campaigns   []Campaign `json:"campaigns,omitempty"`
+	CampaignIDs []string   `json:"campaign_ids,omitempty"`
 
 	ViewersCount int `json:"viewers_count"`
 
-	SpadeURL string `json:"spade_url,omitempty"`
-	Payload map[string]any `json:"payload,omitempty"`
+	SpadeURL string         `json:"spade_url,omitempty"`
+	Payload  map[string]any `json:"payload,omitempty"`
 
-	WatchStreakMissing bool `json:"watch_streak_missing"`
-	MinuteWatched float64 `json:"minute_watched"`
+	WatchStreakMissing bool    `json:"watch_streak_missing"`
+	MinuteWatched      float64 `json:"minute_watched"`
 
-	lastUpdate time.Time
+	lastUpdate             time.Time
 	minuteWatchedTimestamp time.Time
 }
 
 // GameInfo holds game/category metadata from the Twitch API.
 type GameInfo struct {
-	ID string `json:"id"`
-	Name string `json:"name"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
-	Slug string `json:"slug,omitempty"`
+	Slug        string `json:"slug,omitempty"`
 }
 
 // Tag represents a stream tag.
 type Tag struct {
-	ID string `json:"id"`
+	ID            string `json:"id"`
 	LocalizedName string `json:"localizedName"`
 }
 

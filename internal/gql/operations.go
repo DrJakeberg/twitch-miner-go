@@ -12,27 +12,27 @@ import (
 
 // ChannelPointsContext holds the parsed response from the ChannelPointsContext GQL query.
 type ChannelPointsContext struct {
-	Balance int
+	Balance           int
 	ActiveMultipliers []model.PointsMultiplier
-	AvailableClaimID string
-	CommunityGoals []*model.CommunityGoal
+	AvailableClaimID  string
+	CommunityGoals    []*model.CommunityGoal
 }
 
 // PlaybackAccessToken holds the signature and token needed for HLS manifest access.
 type PlaybackAccessToken struct {
 	Signature string `json:"signature"`
-	Value string `json:"value"`
+	Value     string `json:"value"`
 }
 
 // TopStream holds information about a stream returned by the DirectoryPage_Game query.
 type TopStream struct {
-	Username string
-	ChannelID string
-	DisplayName string
+	Username     string
+	ChannelID    string
+	DisplayName  string
 	ViewersCount int
-	GameID string
-	GameName string
-	GameSlug string
+	GameID       string
+	GameName     string
+	GameSlug     string
 }
 
 // GetChannelPointsContext fetches channel points balance, multipliers, available claims,
@@ -49,8 +49,8 @@ func (c *Client) GetChannelPointsContext(ctx context.Context, channelLogin strin
 			Channel struct {
 				Self struct {
 					CommunityPoints struct {
-						Balance           int                `json:"balance"`
-						ActiveMultipliers []json.RawMessage  `json:"activeMultipliers"`
+						Balance           int               `json:"balance"`
+						ActiveMultipliers []json.RawMessage `json:"activeMultipliers"`
 						AvailableClaim    *struct {
 							ID string `json:"id"`
 						} `json:"availableClaim"`
@@ -133,8 +133,8 @@ func (c *Client) GetStreamInfo(ctx context.Context, channelLogin string) (*Strea
 				} `json:"tags"`
 			} `json:"stream"`
 			BroadcastSettings struct {
-				Title string     `json:"title"`
-				Game  *GameResp  `json:"game"`
+				Title string    `json:"title"`
+				Game  *GameResp `json:"game"`
 			} `json:"broadcastSettings"`
 		} `json:"user"`
 	}
@@ -793,14 +793,14 @@ func (c *Client) GetDropCampaignDetailsBatch(ctx context.Context, campaignIDs []
 
 // TeamMember holds information about a team member returned by the TeamPage query.
 type TeamMember struct {
-	UserID      string
-	Login       string
-	DisplayName string
-	IsLive      bool
+	UserID       string
+	Login        string
+	DisplayName  string
+	IsLive       bool
 	ViewersCount int
-	GameID      string
-	GameName    string
-	GameSlug    string
+	GameID       string
+	GameName     string
+	GameSlug     string
 }
 
 // GetTeamMembers fetches all members of a Twitch team.

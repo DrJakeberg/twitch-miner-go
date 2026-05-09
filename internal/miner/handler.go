@@ -41,7 +41,6 @@ func (m *Miner) handleMessage(ctx context.Context, msg *model.Message) {
 	msg.RawMessage = nil
 }
 
-
 func (m *Miner) handleCommunityPoints(ctx context.Context, msg *model.Message, streamer *model.Streamer) {
 	if msg.Data == nil {
 		return
@@ -128,7 +127,6 @@ func (m *Miner) handleClaimAvailable(ctx context.Context, msg *model.Message, st
 	}
 }
 
-
 func (m *Miner) handleVideoPlayback(ctx context.Context, msg *model.Message, streamer *model.Streamer) {
 	if streamer == nil {
 		return
@@ -196,7 +194,6 @@ func (m *Miner) handleViewCount(ctx context.Context, msg *model.Message, streame
 	}
 }
 
-
 func (m *Miner) handleRaid(ctx context.Context, msg *model.Message, streamer *model.Streamer) {
 	if streamer == nil {
 		return
@@ -247,7 +244,6 @@ func (m *Miner) handleRaid(ctx context.Context, msg *model.Message, streamer *mo
 	}
 }
 
-
 func (m *Miner) handleCommunityMoments(ctx context.Context, msg *model.Message, streamer *model.Streamer) {
 	if streamer == nil || msg.Data == nil {
 		return
@@ -283,7 +279,6 @@ func (m *Miner) handleCommunityMoments(ctx context.Context, msg *model.Message, 
 			"streamer", username, "moment_id", momentID, "error", err)
 	}
 }
-
 
 func (m *Miner) handleCommunityGoals(_ context.Context, msg *model.Message, streamer *model.Streamer) {
 	if streamer == nil || msg.Data == nil {

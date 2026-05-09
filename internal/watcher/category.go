@@ -287,9 +287,9 @@ func (cw *CategoryWatcher) evaluate(
 				betCopy.FilterCondition = &fcCopy
 			}
 			defaults.Bet = &betCopy
-			}
-			defaults.FollowRaid = false
-			streamer.Settings = &defaults
+		}
+		defaults.FollowRaid = false
+		streamer.Settings = &defaults
 
 		cw.mu.Lock()
 		cw.categoryStreamers[cat.Slug] = candidate.Username

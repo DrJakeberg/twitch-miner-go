@@ -5,8 +5,8 @@ type Event string
 
 // All supported miner events.
 const (
-	EventStreamerOnline      Event = "STREAMER_ONLINE"
-	EventStreamerOffline     Event = "STREAMER_OFFLINE"
+	EventStreamerOnline     Event = "STREAMER_ONLINE"
+	EventStreamerOffline    Event = "STREAMER_OFFLINE"
 	EventGainForRaid        Event = "GAIN_FOR_RAID"
 	EventGainForClaim       Event = "GAIN_FOR_CLAIM"
 	EventGainForWatch       Event = "GAIN_FOR_WATCH"

@@ -13,10 +13,10 @@ import (
 
 // Cookie represents a single HTTP cookie persisted to JSON.
 type Cookie struct {
-	Name string `json:"name"`
-	Value string `json:"value"`
-	Domain string `json:"domain,omitempty"`
-	Path string `json:"path,omitempty"`
+	Name    string    `json:"name"`
+	Value   string    `json:"value"`
+	Domain  string    `json:"domain,omitempty"`
+	Path    string    `json:"path,omitempty"`
 	Expires time.Time `json:"expires,omitempty"`
 }
 

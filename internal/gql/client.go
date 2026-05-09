@@ -43,9 +43,9 @@ type operationBehavior struct {
 // expected and should be logged at DEBUG instead of WARN. These operations
 // sometimes fail with "failed integrity check" but may still succeed on retry.
 var integrityFailureOps = map[string]bool{
-	"JoinRaid":                  true,
-	"ClaimCommunityPoints":      true,
-	"ViewerDropsDashboard":      true,
+	"JoinRaid":                   true,
+	"ClaimCommunityPoints":       true,
+	"ViewerDropsDashboard":       true,
 	"DropsPage_ClaimDropRewards": true,
 }
 
