@@ -13,7 +13,6 @@ category_watcher:
     - slug: tom-clancys-rainbow-six-siege
       drops_only: false
     - slug: battlefield-6
-      drops_only: false
     - slug: valorant
     - slug: star-citizen
     - slug: the-finals
@@ -26,6 +25,7 @@ category_watcher:
     - slug: war-thunder
     - slug: minecraft
     - slug: rocket-league
+    - slug: special-events
 team_watcher:
   enabled: true
   poll_interval: 180s
