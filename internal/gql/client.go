@@ -80,6 +80,10 @@ var operationBehaviors = map[string]operationBehavior{
 		skipIntegrity: true,
 		clientID:      constants.ClientIDAndroid,
 	},
+	"ViewerDropsDashboard": {
+		skipIntegrity: true,
+		clientID:      constants.ClientIDAndroid,
+	},
 }
 
 // circuitBreaker tracks consecutive failures and backs off when the API
