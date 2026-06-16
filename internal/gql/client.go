@@ -43,10 +43,7 @@ type operationBehavior struct {
 // expected and should be logged at DEBUG instead of WARN. These operations
 // sometimes fail with "failed integrity check" but may still succeed on retry.
 var integrityFailureOps = map[string]bool{
-	"JoinRaid":                   true,
-	"ClaimCommunityPoints":       true,
-	"ViewerDropsDashboard":       true,
-	"DropsPage_ClaimDropRewards": true,
+	"JoinRaid": true,
 }
 
 // operationBehaviors centralizes per-operation compatibility workarounds for
@@ -56,7 +53,6 @@ var operationBehaviors = map[string]operationBehavior{
 	// headers or with stale persisted-query behavior. Treating errors as fatal
 	// prevents silent "0 followers" fallbacks.
 	"ChannelFollows": {
-		skipIntegrity:   true,
 		failOnErrors:    true,
 		tryAltClientIDs: true,
 	},
@@ -66,23 +62,6 @@ var operationBehaviors = map[string]operationBehavior{
 	},
 	"TeamPage": {
 		failOnErrors: true,
-	},
-	// Community points claims also fail with integrity checks from browser
-	// client IDs. Using Android client ID matches the drop claim approach.
-	"ClaimCommunityPoints": {
-		skipIntegrity: true,
-		clientID:      constants.ClientIDAndroid,
-	},
-	// Twitch enforces integrity checks only for browser client IDs.
-	// Using the Android client ID without integrity matches the approach
-	// of all major working Twitch miners (DevilXD, rdavydov).
-	"DropsPage_ClaimDropRewards": {
-		skipIntegrity: true,
-		clientID:      constants.ClientIDAndroid,
-	},
-	"ViewerDropsDashboard": {
-		skipIntegrity: true,
-		clientID:      constants.ClientIDAndroid,
 	},
 }
 
@@ -312,11 +291,8 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 
 	behavior := operationBehaviors[opName]
 
-	// Raw queries (non-persisted) should not send the integrity token —
-	// Twitch's integrity system is designed for persisted queries and
-	// sending it with raw queries causes "service error" for some categories.
 	skipIntegrity := reqBody.Query != "" || behavior.skipIntegrity
-	clientIDs := []string{""}
+	clientIDs := []string{c.auth.AndroidClientID()}
 	if behavior.clientID != "" {
 		clientIDs = []string{behavior.clientID}
 	} else if behavior.tryAltClientIDs {
@@ -325,11 +301,6 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 			clientIDs = ids
 		}
 	}
-
-	// androidFallbackEligible is true when the operation is not already
-	// configured to use the Android client ID, so we can attempt it as a
-	// fallback if an integrity check fails.
-	androidFallbackEligible := behavior.clientID != constants.ClientIDAndroid
 
 	var lastErr error
 	for idx, clientID := range clientIDs {
@@ -362,22 +333,7 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 					"client_id_attempt", idx+1)
 			}
 
-			// Priority 1: integrity failure → try Android client ID (no integrity).
-			if strings.Contains(errMsg, "integrity check") && androidFallbackEligible {
-				androidFallbackEligible = false // one attempt only
-				if data, fbErr := c.retryWithAndroidClientID(ctx, jsonBody, opName); fbErr == nil {
-					return data, nil
-				}
-				// Fallback failed — continue with the remaining strategies.
-			}
-
-			// Priority 2: retryable GQL error → semantic retry with backoff.
 			if behavior.retryGQLErrors && isRetryableGQLError(errMsg) && semanticRetries < 2 {
-				if strings.Contains(errMsg, "integrity check") {
-					if clearer, ok := c.auth.(interface{ ClearIntegrityToken() }); ok {
-						clearer.ClearIntegrityToken()
-					}
-				}
 				semanticRetries++
 				backoff := time.Duration(semanticRetries) * time.Second
 				c.log.Info("Retrying GQL operation after transient response error",
@@ -392,12 +348,11 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 				continue
 			}
 
-			// Priority 3: alternate client IDs.
 			if behavior.tryAltClientIDs && idx < len(clientIDs)-1 {
 				c.log.Info("Retrying GQL operation with alternate client ID",
 					"operation", opName,
 					"attempt", idx+2,
-					"total_attempts", len(clientIDs))
+					"total_clients", len(clientIDs))
 				lastErr = wrapTransientGQLError(opName, errMsg)
 				break
 			}
@@ -417,36 +372,6 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 	return nil, fmt.Errorf("GQL operation %s failed without a response", opName)
 }
 
-// retryWithAndroidClientID performs a single GQL request using the Android
-// client ID without an integrity token. Twitch enforces integrity checks only
-// for browser client IDs, so the Android ID sidesteps the check entirely.
-// Returns (data, nil) on success or (nil, err) if the fallback also failed.
-func (c *Client) retryWithAndroidClientID(ctx context.Context, jsonBody []byte, opName string) (json.RawMessage, error) {
-	if clearer, ok := c.auth.(interface{ ClearIntegrityToken() }); ok {
-		clearer.ClearIntegrityToken()
-	}
-
-	c.log.Info("Integrity check failed, retrying with Android client ID",
-		"operation", opName)
-
-	respBody, err := c.doHTTPRequest(ctx, jsonBody, opName, true, c.auth.AndroidClientID())
-	if err != nil {
-		return nil, fmt.Errorf("android client ID fallback for %s: %w", opName, err)
-	}
-
-	var response gqlResponse
-	if err := json.Unmarshal(respBody, &response); err != nil {
-		return nil, fmt.Errorf("parsing android fallback response for %s: %w", opName, err)
-	}
-
-	if len(response.Errors) > 0 {
-		return nil, fmt.Errorf("android client ID fallback for %s returned error: %s",
-			opName, response.Errors[0].Message)
-	}
-
-	c.log.Info("Android client ID fallback succeeded", "operation", opName)
-	return response.Data, nil
-}
 
 func wrapTransientGQLError(opName, errMsg string) error {
 	if isRetryableGQLError(errMsg) {
@@ -460,8 +385,7 @@ func isRetryableGQLError(errMsg string) bool {
 	return strings.Contains(errMsg, "service timeout") ||
 		strings.Contains(errMsg, "service unavailable") ||
 		strings.Contains(errMsg, "temporarily unavailable") ||
-		strings.Contains(errMsg, "timed out") ||
-		strings.Contains(errMsg, "integrity check")
+		strings.Contains(errMsg, "timed out")
 }
 
 // IsTransientError reports whether the error indicates a temporary Twitch-side

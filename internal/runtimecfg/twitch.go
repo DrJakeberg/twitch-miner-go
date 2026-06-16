@@ -38,10 +38,10 @@ func (c *Twitch) ClientIDsForGQL() []string {
 	}
 
 	candidates := []string{
-		c.ClientIDBrowser,
-		c.ClientIDMobile,
 		c.ClientIDAndroid,
 		c.ClientIDIOS,
+		c.ClientIDMobile,
+		c.ClientIDBrowser,
 		c.ClientIDTV,
 	}
 
