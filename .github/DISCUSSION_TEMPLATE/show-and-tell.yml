@@ -1,0 +1,18 @@
+title: "[Show] "
+body:
+  - type: markdown
+    attributes:
+      value: Share your setup, config, automation, or anything built with twitch-miner-go.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What are you sharing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Config snippets, scripts, dashboards, screenshots — whatever helps explain it. Remove all tokens and secrets.
