@@ -77,6 +77,25 @@ curl -X POST http://localhost:8080/api/test-notification
 
 The analytics dashboard is available at `http://localhost:8080`.
 
+## Automatic updates
+
+Pass `-auto-update` to have the miner update itself on startup:
+
+```bash
+./run.sh -auto-update
+```
+
+When a new release is found, the miner downloads the new binary, replaces itself, and exits — the service manager restarts it with the new version. If anything goes wrong, it falls back to printing the usual update notice.
+
+For a **systemd** service, add the flag to `ExecStart`:
+```ini
+ExecStart=/usr/local/bin/twitch-miner-go -config /etc/twitch-miner-go/configs -auto-update
+```
+
+For a **Windows NSSM** service, add `-auto-update` to the service arguments (re-run `install-service.bat` or edit via NSSM GUI).
+
+> Not useful for Docker or Fly.io — those update by pulling a new image.
+
 ## Next steps
 
 - Add more streamers or enable [category/team watchers](Configuration-Reference#watcher-options)

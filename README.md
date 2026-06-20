@@ -119,6 +119,7 @@ run.bat
 | `-log-level`       | `INFO`    | Log level: DEBUG, INFO, WARN, ERROR (effective default: `INFO`) |
 | `-healthcheck-url` | _(none)_  | Probe the given HTTP URL and exit 0 on HTTP 200                 |
 | `-version`         | `false`   | Print version and exit                                          |
+| `-auto-update`     | `false`   | Download and apply the latest release automatically on startup  |
 
 ## 1.5. Configuration
 
@@ -742,9 +743,33 @@ For self-hosted deployments, Docker Compose is also supported — see the [Docke
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/) and automated versioning. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full commit convention, git hooks setup, and versioning workflow.
 
-## 1.14. Auto-Update Checker
+## 1.14. Auto-Update
 
-On startup, the miner automatically checks for new releases in the background via [`updater.CheckForUpdate()`](internal/updater/updater.go). If a newer version is available, a notification is printed to the terminal. This check is non-blocking and does not affect startup time.
+On startup, the miner automatically checks for new releases in the background. If a newer version is available, a notification is printed to the terminal. This check is non-blocking and does not affect startup time.
+
+### Automatic updates
+
+Pass `-auto-update` to have the miner download and apply the update itself:
+
+```bash
+./run.sh -auto-update
+```
+
+When a new release is detected:
+1. The platform-specific binary is downloaded from [GitHub Releases](https://github.com/Guliveer/twitch-miner-go/releases).
+2. The current binary is replaced atomically.
+3. The process exits with code 0 — your service manager (systemd, NSSM, OpenRC) restarts it automatically with the new binary.
+
+If the download or replacement fails (e.g. no write permission, Docker read-only filesystem), the miner continues running and prints the usual update notification instead.
+
+**To enable in a systemd unit**, add `-auto-update` to `ExecStart`:
+```ini
+ExecStart=/usr/local/bin/twitch-miner-go -config /etc/twitch-miner-go/configs -auto-update
+```
+
+**To enable in a Windows NSSM service**, re-run the installer or edit the service arguments in NSSM GUI to include `-auto-update`.
+
+> **Note:** Auto-update is opt-in and disabled by default. It is not useful for Docker or Fly.io deployments where the image is the unit of update.
 
 ## 1.15. License
 

@@ -88,6 +88,7 @@ func main() {
 	logLevel := flag.String("log-level", "", "Log level: DEBUG, INFO, WARN, ERROR (overrides LOG_LEVEL env)")
 	healthcheckURL := flag.String("healthcheck-url", "", "Probe the given HTTP URL and exit with status 0 only on HTTP 200")
 	showVersion := flag.Bool("version", false, "Print version and exit")
+	autoUpdate := flag.Bool("auto-update", false, "Automatically download and apply updates on startup")
 	flag.Parse()
 
 	if *showVersion {
@@ -146,8 +147,25 @@ func main() {
 			rootLog.Debug("Update check failed", "error", err)
 			return
 		}
-		if msg := updater.FormatNotification(info, version.Number); msg != "" {
-			fmt.Print(msg)
+		if !info.Available {
+			return
+		}
+		if *autoUpdate && info.AssetURL != "" {
+			rootLog.Info("New version available, downloading update", "version", info.Latest)
+			tmp, err := updater.DownloadAsset(context.Background(), info.AssetURL)
+			if err != nil {
+				rootLog.Warn("Auto-update download failed, continuing with current version", "error", err)
+				fmt.Print(updater.FormatNotification(info, version.Number))
+				return
+			}
+			if err := updater.ReplaceBinary(tmp); err != nil {
+				rootLog.Warn("Auto-update replace failed, continuing with current version", "error", err)
+				fmt.Print(updater.FormatNotification(info, version.Number))
+				return
+			}
+			updater.ExitForRestart(rootLog.Logger)
+		} else {
+			fmt.Print(updater.FormatNotification(info, version.Number))
 		}
 	})
 
