@@ -74,3 +74,21 @@ Releases are fully automated through the [CI workflow](.github/workflows/ci.yml)
    - **deploy** — deploys to Fly.io (when `FLY_API_TOKEN` is configured)
 
 Docker images are published separately via the [Docker workflow](.github/workflows/docker-publish.yml). No manual tags are needed — just write well-formatted commits and the pipeline handles the rest.
+
+## Documentation and Wiki
+
+The project has two layers of documentation:
+
+- **README.md** — installation, deployment, quick-start. Update when adding flags, env vars, or deployment methods.
+- **[Wiki](.github/wiki/)** — in-depth reference pages (configuration, auth, strategies, notifications, troubleshooting, architecture). Wiki source files live in `.github/wiki/` and are automatically synced to the GitHub Wiki on every push.
+
+After any non-trivial change, check whether the relevant wiki page needs updating:
+
+| Changed area | Wiki page to review |
+|---|---|
+| Config options / YAML schema | [Configuration-Reference](.github/wiki/Configuration-Reference.md) |
+| Auth flow or token handling | [Authentication](.github/wiki/Authentication.md) |
+| Prediction strategies or bet logic | [Prediction-Strategies](.github/wiki/Prediction-Strategies.md) |
+| Notification providers or events | [Notifications](.github/wiki/Notifications.md) |
+| Known errors or edge cases | [Troubleshooting](.github/wiki/Troubleshooting.md) |
+| Internal packages or data flow | [Architecture](.github/wiki/Architecture.md) |
