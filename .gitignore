@@ -39,6 +39,7 @@ logs/
 _service-start.bat
 
 # Other
-.claude/
+!.claude/settings.json
 .remember/
 .omc/
+graphify-out/cost.json
