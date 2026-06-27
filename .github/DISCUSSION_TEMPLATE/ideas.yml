@@ -1,5 +1,12 @@
 title: "[Idea] "
 body:
+  - type: markdown
+    attributes:
+      value: >
+        **Got a concrete, well-defined feature request?**
+        [Open a Feature Request issue](https://github.com/Guliveer/twitch-miner-go/issues/new?template=feature_request.yml) instead — it gets tracked and prioritised in the backlog.
+        Use this discussion for rough ideas, brainstorming, or anything you want community feedback on first.
+
   - type: checkboxes
     id: preflight
     attributes:
