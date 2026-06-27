@@ -372,7 +372,6 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 	return nil, fmt.Errorf("GQL operation %s failed without a response", opName)
 }
 
-
 func wrapTransientGQLError(opName, errMsg string) error {
 	if isRetryableGQLError(errMsg) {
 		return fmt.Errorf("%w: GQL operation %s returned error: %s", ErrTransientGQLError, opName, errMsg)

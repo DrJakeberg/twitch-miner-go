@@ -75,6 +75,192 @@ func runCreateAccount(configDir string) error {
 	return runEditAccount(configDir, name)
 }
 
+type editAccountFields struct {
+	enabled            bool
+	maxWatchStr        string
+	proxy              string
+	selectedPriorities []string
+	claimDropsStartup  bool
+	enableAnalytics    bool
+	cwEnabled          bool
+	cwInterval         string
+	cwCategoriesStr    string
+	twEnabled          bool
+	twInterval         string
+	twTeamsStr         string
+	streamersStr       string
+	action             string
+}
+
+func loadEditFields(cfg map[string]any) editAccountFields {
+	features, _ := cfg["features"].(map[string]any)
+	if features == nil {
+		features = map[string]any{}
+	}
+	cw := subMap(cfg, "category_watcher")
+	tw := subMap(cfg, "team_watcher")
+
+	return editAccountFields{
+		enabled:            boolVal(cfg, "enabled", true),
+		maxWatchStr:        strconv.Itoa(intVal(cfg, "max_watch_streams", 2)),
+		proxy:              stringVal(cfg, "proxy", ""),
+		selectedPriorities: stringSliceVal(cfg, "priority", []string{"STREAK", "DROPS", "ORDER"}),
+		claimDropsStartup:  boolVal(features, "claim_drops_startup", false),
+		enableAnalytics:    boolVal(features, "enable_analytics", false),
+		cwEnabled:          boolVal(cw, "enabled", false),
+		cwInterval:         stringVal(cw, "poll_interval", "120s"),
+		cwCategoriesStr:    strings.Join(parseCategorySlugs(cw), ", "),
+		twEnabled:          boolVal(tw, "enabled", false),
+		twInterval:         stringVal(tw, "poll_interval", "120s"),
+		twTeamsStr:         strings.Join(parseTeamNames(tw), ", "),
+		streamersStr:       strings.Join(parseStreamerUsernames(cfg), ", "),
+	}
+}
+
+func subMap(cfg map[string]any, key string) map[string]any {
+	m, _ := cfg[key].(map[string]any)
+	if m == nil {
+		return map[string]any{}
+	}
+	return m
+}
+
+func parseCategorySlugs(cw map[string]any) []string {
+	raw, _ := cw["categories"].([]any)
+	out := make([]string, 0, len(raw))
+	for _, c := range raw {
+		if cm, ok := c.(map[string]any); ok {
+			if slug, ok := cm["slug"].(string); ok && slug != "" {
+				out = append(out, slug)
+			}
+		}
+	}
+	return out
+}
+
+func parseTeamNames(tw map[string]any) []string {
+	raw, _ := tw["teams"].([]any)
+	out := make([]string, 0, len(raw))
+	for _, t := range raw {
+		if tm, ok := t.(map[string]any); ok {
+			if n, ok := tm["name"].(string); ok && n != "" {
+				out = append(out, n)
+			}
+		}
+	}
+	return out
+}
+
+func parseStreamerUsernames(cfg map[string]any) []string {
+	raw, _ := cfg["streamers"].([]any)
+	out := make([]string, 0, len(raw))
+	for _, st := range raw {
+		if sm, ok := st.(map[string]any); ok {
+			if u, ok := sm["username"].(string); ok && u != "" {
+				out = append(out, u)
+			}
+		}
+	}
+	return out
+}
+
+func applyEditFields(cfg map[string]any, f *editAccountFields) {
+	maxWatchInt, _ := strconv.Atoi(f.maxWatchStr)
+	if maxWatchInt < 1 {
+		maxWatchInt = 2
+	}
+	if !f.enabled {
+		cfg["enabled"] = false
+	} else {
+		delete(cfg, "enabled")
+	}
+	cfg["max_watch_streams"] = maxWatchInt
+	if f.proxy != "" {
+		cfg["proxy"] = f.proxy
+	} else {
+		delete(cfg, "proxy")
+	}
+	if len(f.selectedPriorities) > 0 {
+		cfg["priority"] = f.selectedPriorities
+	}
+	applyFeaturesSection(cfg, f)
+	applyCategoryWatcherSection(cfg, f)
+	applyTeamWatcherSection(cfg, f)
+	applyStreamersSection(cfg, f)
+}
+
+func applyFeaturesSection(cfg map[string]any, f *editAccountFields) {
+	m := map[string]any{}
+	if f.claimDropsStartup {
+		m["claim_drops_startup"] = true
+	}
+	if f.enableAnalytics {
+		m["enable_analytics"] = true
+	}
+	if len(m) > 0 {
+		cfg["features"] = m
+	} else {
+		delete(cfg, "features")
+	}
+}
+
+func applyCategoryWatcherSection(cfg map[string]any, f *editAccountFields) {
+	m := map[string]any{}
+	if f.cwEnabled {
+		m["enabled"] = true
+	}
+	if f.cwInterval != "" && f.cwInterval != "120s" {
+		m["poll_interval"] = f.cwInterval
+	}
+	if slugs := parseCSSV(f.cwCategoriesStr); len(slugs) > 0 {
+		cats := make([]any, len(slugs))
+		for i, slug := range slugs {
+			cats[i] = map[string]any{"slug": slug}
+		}
+		m["categories"] = cats
+	}
+	if len(m) > 0 {
+		cfg["category_watcher"] = m
+	} else {
+		delete(cfg, "category_watcher")
+	}
+}
+
+func applyTeamWatcherSection(cfg map[string]any, f *editAccountFields) {
+	m := map[string]any{}
+	if f.twEnabled {
+		m["enabled"] = true
+	}
+	if f.twInterval != "" && f.twInterval != "120s" {
+		m["poll_interval"] = f.twInterval
+	}
+	if names := parseCSSV(f.twTeamsStr); len(names) > 0 {
+		teams := make([]any, len(names))
+		for i, n := range names {
+			teams[i] = map[string]any{"name": n}
+		}
+		m["teams"] = teams
+	}
+	if len(m) > 0 {
+		cfg["team_watcher"] = m
+	} else {
+		delete(cfg, "team_watcher")
+	}
+}
+
+func applyStreamersSection(cfg map[string]any, f *editAccountFields) {
+	list := parseCSSV(f.streamersStr)
+	if len(list) > 0 {
+		streamers := make([]any, len(list))
+		for i, u := range list {
+			streamers[i] = map[string]any{"username": u}
+		}
+		cfg["streamers"] = streamers
+	} else {
+		delete(cfg, "streamers")
+	}
+}
+
 func runEditAccount(configDir string, name string) error {
 	s := &Server{configDir: configDir}
 	cfg, err := s.loadRaw(name)
@@ -82,73 +268,9 @@ func runEditAccount(configDir string, name string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// ── General ──
-	enabled := boolVal(cfg, "enabled", true)
-	maxWatch := intVal(cfg, "max_watch_streams", 2)
-	maxWatchStr := strconv.Itoa(maxWatch)
-	proxy := stringVal(cfg, "proxy", "")
+	f := loadEditFields(cfg)
 
 	priorityOptions := []string{"STREAK", "DROPS", "ORDER", "SUBSCRIBED", "POINTS_ASCENDING", "POINTS_DESCENDING"}
-	selectedPriorities := stringSliceVal(cfg, "priority", []string{"STREAK", "DROPS", "ORDER"})
-
-	// ── Features ──
-	features, _ := cfg["features"].(map[string]any)
-	if features == nil {
-		features = map[string]any{}
-	}
-	claimDropsStartup := boolVal(features, "claim_drops_startup", false)
-	enableAnalytics := boolVal(features, "enable_analytics", false)
-
-	// ── Category Watcher ──
-	cw, _ := cfg["category_watcher"].(map[string]any)
-	if cw == nil {
-		cw = map[string]any{}
-	}
-	cwEnabled := boolVal(cw, "enabled", false)
-	cwInterval := stringVal(cw, "poll_interval", "120s")
-	cwCategoriesRaw, _ := cw["categories"].([]any)
-	cwCategoriesSlugs := make([]string, 0, len(cwCategoriesRaw))
-	for _, c := range cwCategoriesRaw {
-		if cm, ok := c.(map[string]any); ok {
-			if slug, ok := cm["slug"].(string); ok && slug != "" {
-				cwCategoriesSlugs = append(cwCategoriesSlugs, slug)
-			}
-		}
-	}
-	cwCategoriesStr := strings.Join(cwCategoriesSlugs, ", ")
-
-	// ── Team Watcher ──
-	tw, _ := cfg["team_watcher"].(map[string]any)
-	if tw == nil {
-		tw = map[string]any{}
-	}
-	twEnabled := boolVal(tw, "enabled", false)
-	twInterval := stringVal(tw, "poll_interval", "120s")
-	twTeamsRaw, _ := tw["teams"].([]any)
-	twTeamNames := make([]string, 0, len(twTeamsRaw))
-	for _, t := range twTeamsRaw {
-		if tm, ok := t.(map[string]any); ok {
-			if n, ok := tm["name"].(string); ok && n != "" {
-				twTeamNames = append(twTeamNames, n)
-			}
-		}
-	}
-	twTeamsStr := strings.Join(twTeamNames, ", ")
-
-	// ── Streamers ──
-	streamersRaw, _ := cfg["streamers"].([]any)
-	streamerNames := make([]string, 0, len(streamersRaw))
-	for _, st := range streamersRaw {
-		if sm, ok := st.(map[string]any); ok {
-			if u, ok := sm["username"].(string); ok && u != "" {
-				streamerNames = append(streamerNames, u)
-			}
-		}
-	}
-	streamersStr := strings.Join(streamerNames, ", ")
-
-	// ── Action choice ──
-	var action string
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -158,7 +280,7 @@ func runEditAccount(configDir string, name string) error {
 			huh.NewConfirm().
 				Title("Enabled").
 				Description("Enable this account").
-				Value(&enabled),
+				Value(&f.enabled),
 		).Title("General"),
 
 		huh.NewGroup(
@@ -171,31 +293,31 @@ func runEditAccount(configDir string, name string) error {
 					}
 					return nil
 				}).
-				Value(&maxWatchStr),
+				Value(&f.maxWatchStr),
 			huh.NewInput().
 				Title("Proxy").
 				Description("e.g. socks5://127.0.0.1:1080 (leave blank to disable)").
-				Value(&proxy),
+				Value(&f.proxy),
 			huh.NewMultiSelect[string]().
 				Title("Priority").
 				Description("Select and order priorities (first wins)").
 				Options(huh.NewOptions(priorityOptions...)...).
-				Value(&selectedPriorities),
+				Value(&f.selectedPriorities),
 		).Title("General (continued)"),
 
 		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Claim drops on startup").
-				Value(&claimDropsStartup),
+				Value(&f.claimDropsStartup),
 			huh.NewConfirm().
 				Title("Enable analytics").
-				Value(&enableAnalytics),
+				Value(&f.enableAnalytics),
 		).Title("Features"),
 
 		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Category Watcher enabled").
-				Value(&cwEnabled),
+				Value(&f.cwEnabled),
 			huh.NewInput().
 				Title("Category Watcher poll interval").
 				Description("e.g. 120s, 5m, 1h").
@@ -205,17 +327,17 @@ func runEditAccount(configDir string, name string) error {
 					}
 					return nil
 				}).
-				Value(&cwInterval),
+				Value(&f.cwInterval),
 			huh.NewInput().
 				Title("Categories (comma-separated slugs)").
 				Description("e.g. just-chatting, science-and-technology").
-				Value(&cwCategoriesStr),
+				Value(&f.cwCategoriesStr),
 		).Title("Category Watcher"),
 
 		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Team Watcher enabled").
-				Value(&twEnabled),
+				Value(&f.twEnabled),
 			huh.NewInput().
 				Title("Team Watcher poll interval").
 				Description("e.g. 120s, 5m").
@@ -225,18 +347,18 @@ func runEditAccount(configDir string, name string) error {
 					}
 					return nil
 				}).
-				Value(&twInterval),
+				Value(&f.twInterval),
 			huh.NewInput().
 				Title("Teams (comma-separated names)").
 				Description("e.g. nrg, sentinels").
-				Value(&twTeamsStr),
+				Value(&f.twTeamsStr),
 		).Title("Team Watcher"),
 
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Streamers (comma-separated usernames)").
 				Description("e.g. streamer1, streamer2").
-				Value(&streamersStr),
+				Value(&f.streamersStr),
 		).Title("Streamers"),
 
 		huh.NewGroup(
@@ -247,7 +369,7 @@ func runEditAccount(configDir string, name string) error {
 					huh.NewOption("Discard changes", "discard"),
 					huh.NewOption("Delete this account", "delete"),
 				).
-				Value(&action),
+				Value(&f.action),
 		).Title("Confirm"),
 	)
 
@@ -255,7 +377,7 @@ func runEditAccount(configDir string, name string) error {
 		return err
 	}
 
-	switch action {
+	switch f.action {
 	case "discard":
 		fmt.Println("Changes discarded.")
 		return nil
@@ -278,94 +400,7 @@ func runEditAccount(configDir string, name string) error {
 		return nil
 	}
 
-	// Build updated config
-	maxWatchInt, _ := strconv.Atoi(maxWatchStr)
-	if maxWatchInt < 1 {
-		maxWatchInt = 2
-	}
-	if !enabled {
-		cfg["enabled"] = false
-	} else {
-		delete(cfg, "enabled")
-	}
-	cfg["max_watch_streams"] = maxWatchInt
-	if proxy != "" {
-		cfg["proxy"] = proxy
-	} else {
-		delete(cfg, "proxy")
-	}
-	if len(selectedPriorities) > 0 {
-		cfg["priority"] = selectedPriorities
-	}
-
-	featuresMap := map[string]any{}
-	if claimDropsStartup {
-		featuresMap["claim_drops_startup"] = true
-	}
-	if enableAnalytics {
-		featuresMap["enable_analytics"] = true
-	}
-	if len(featuresMap) > 0 {
-		cfg["features"] = featuresMap
-	} else {
-		delete(cfg, "features")
-	}
-
-	// Category watcher
-	cwMap := map[string]any{}
-	if cwEnabled {
-		cwMap["enabled"] = true
-	}
-	if cwInterval != "" && cwInterval != "120s" {
-		cwMap["poll_interval"] = cwInterval
-	}
-	cwSlugs := parseCSSV(cwCategoriesStr)
-	if len(cwSlugs) > 0 {
-		cats := make([]any, len(cwSlugs))
-		for i, slug := range cwSlugs {
-			cats[i] = map[string]any{"slug": slug}
-		}
-		cwMap["categories"] = cats
-	}
-	if len(cwMap) > 0 {
-		cfg["category_watcher"] = cwMap
-	} else {
-		delete(cfg, "category_watcher")
-	}
-
-	// Team watcher
-	twMap := map[string]any{}
-	if twEnabled {
-		twMap["enabled"] = true
-	}
-	if twInterval != "" && twInterval != "120s" {
-		twMap["poll_interval"] = twInterval
-	}
-	twNames := parseCSSV(twTeamsStr)
-	if len(twNames) > 0 {
-		teams := make([]any, len(twNames))
-		for i, n := range twNames {
-			teams[i] = map[string]any{"name": n}
-		}
-		twMap["teams"] = teams
-	}
-	if len(twMap) > 0 {
-		cfg["team_watcher"] = twMap
-	} else {
-		delete(cfg, "team_watcher")
-	}
-
-	// Streamers
-	streamerList := parseCSSV(streamersStr)
-	if len(streamerList) > 0 {
-		streamers := make([]any, len(streamerList))
-		for i, u := range streamerList {
-			streamers[i] = map[string]any{"username": u}
-		}
-		cfg["streamers"] = streamers
-	} else {
-		delete(cfg, "streamers")
-	}
+	applyEditFields(cfg, &f)
 
 	if errs := validateConfig(cfg); len(errs) > 0 {
 		fmt.Println("Validation errors:")

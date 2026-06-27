@@ -20,12 +20,12 @@ type DebugSnapshot struct {
 
 // DebugWatchingEntry describes one streamer selected for minute-watched events.
 type DebugWatchingEntry struct {
-	Username           string  `json:"username"`
-	DisplayName        string  `json:"display_name,omitempty"`
-	ChannelPoints      int     `json:"channel_points"`
+	Username             string  `json:"username"`
+	DisplayName          string  `json:"display_name,omitempty"`
+	ChannelPoints        int     `json:"channel_points"`
 	IsWatchStreakMissing bool    `json:"watch_streak_missing"`
-	MinuteWatched      float64 `json:"minute_watched"`
-	DropsEnabled       bool    `json:"drops_enabled"`
+	MinuteWatched        float64 `json:"minute_watched"`
+	DropsEnabled         bool    `json:"drops_enabled"`
 }
 
 // DebugPredictionEntry describes one active prediction and its scheduling state.
@@ -55,11 +55,11 @@ func (m *Miner) DebugSnapshot() DebugSnapshot {
 	for _, streamer := range watching {
 		streamer.Mu.RLock()
 		entry := DebugWatchingEntry{
-			Username:           streamer.Username,
-			DisplayName:        streamer.DisplayName,
-			ChannelPoints:      streamer.ChannelPoints,
+			Username:             streamer.Username,
+			DisplayName:          streamer.DisplayName,
+			ChannelPoints:        streamer.ChannelPoints,
 			IsWatchStreakMissing: streamer.Stream != nil && streamer.Stream.IsWatchStreakMissing,
-			DropsEnabled:       streamer.Settings != nil && streamer.Settings.ClaimDrops,
+			DropsEnabled:         streamer.Settings != nil && streamer.Settings.ClaimDrops,
 		}
 		if streamer.Stream != nil {
 			entry.MinuteWatched = streamer.Stream.MinuteWatched

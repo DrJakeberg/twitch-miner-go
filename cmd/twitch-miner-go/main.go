@@ -82,6 +82,11 @@ func playStartupAnimation(colored bool) {
 	}
 }
 
+type minerEntry struct {
+	cfg   *config.AccountConfig
+	miner *miner.Miner
+}
+
 func main() {
 	configDir := flag.String("config", "configs", "Path to the configuration directory")
 	port := flag.String("port", "8080", "Port for the health/analytics HTTP server")
@@ -104,32 +109,17 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Load .env file if it exists (ignore error if file is missing)
 	if err := godotenv.Load(); err != nil {
-		// Only log if the file exists but couldn't be parsed
 		if _, statErr := os.Stat(".env"); statErr == nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to parse .env file: %v\n", err)
 		}
 	}
 
-	level := slog.LevelInfo
-	if *logLevel != "" {
-		level = logger.ParseLevel(*logLevel)
-	} else if envLevel := os.Getenv("LOG_LEVEL"); envLevel != "" {
-		level = logger.ParseLevel(envLevel)
-	}
-
-	httpPort := *port
-	if envPort := os.Getenv("PORT"); envPort != "" {
-		httpPort = envPort
-	}
-
+	level := resolveLogLevel(*logLevel)
+	httpPort := resolvePort(*port)
 	colored := logger.ColorSupported()
 
-	rootLog, err := logger.Setup(logger.Config{
-		Level:   level,
-		Colored: colored,
-	})
+	rootLog, err := logger.Setup(logger.Config{Level: level, Colored: colored})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to setup logger: %v\n", err)
 		os.Exit(1)
@@ -140,34 +130,7 @@ func main() {
 
 	twitchRuntime := runtimecfg.LoadTwitchFromEnv(rootLog.Logger)
 
-	// Check for updates in the background.
-	utils.SafeGo(func() {
-		info, err := updater.CheckForUpdate(context.Background(), version.Number)
-		if err != nil {
-			rootLog.Debug("Update check failed", "error", err)
-			return
-		}
-		if !info.Available {
-			return
-		}
-		if *autoUpdate && info.AssetURL != "" {
-			rootLog.Info("New version available, downloading update", "version", info.Latest)
-			tmp, err := updater.DownloadAsset(context.Background(), info.AssetURL)
-			if err != nil {
-				rootLog.Warn("Auto-update download failed, continuing with current version", "error", err)
-				fmt.Print(updater.FormatNotification(info, version.Number))
-				return
-			}
-			if err := updater.ReplaceBinary(tmp); err != nil {
-				rootLog.Warn("Auto-update replace failed, continuing with current version", "error", err)
-				fmt.Print(updater.FormatNotification(info, version.Number))
-				return
-			}
-			updater.ExitForRestart(rootLog.Logger)
-		} else {
-			fmt.Print(updater.FormatNotification(info, version.Number))
-		}
-	})
+	utils.SafeGo(func() { runAutoUpdate(rootLog, *autoUpdate) })
 
 	configs, err := config.LoadAllAccountConfigs(*configDir)
 	if err != nil {
@@ -185,118 +148,42 @@ func main() {
 		}
 	}
 
-	rootLog.Info("📂 Loaded account configurations",
-		"count", len(configs),
-		"config_dir", *configDir,
-	)
+	rootLog.Info("📂 Loaded account configurations", "count", len(configs), "config_dir", *configDir)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
 	utils.SafeGo(func() {
 		sig := <-sigCh
 		rootLog.Info("Received shutdown signal", "signal", sig.String())
 		cancel()
-
 		time.AfterFunc(30*time.Second, func() {
 			rootLog.Error("Graceful shutdown timed out, forcing exit")
 			os.Exit(1)
 		})
 	})
 
-	type minerEntry struct {
-		cfg   *config.AccountConfig
-		miner *miner.Miner
-	}
+	miners := buildMiners(configs, rootLog, twitchRuntime)
 
-	miners := make([]minerEntry, 0, len(configs))
-	for _, cfg := range configs {
-		if !cfg.IsEnabled() {
-			rootLog.Info("Account is disabled, skipping", "account", cfg.Username)
-			continue
-		}
-		accountLog := rootLog.WithAccount(cfg.Username)
-		minerInstance := miner.NewMiner(cfg, accountLog, twitchRuntime)
-		miners = append(miners, minerEntry{cfg: cfg, miner: minerInstance})
-	}
-
-	addr := ":" + httpPort
-	var dashboardAuth *server.DashboardAuth
-	if user := os.Getenv("DASHBOARD_USER"); user != "" {
-		dashboardAuth = &server.DashboardAuth{
-			Username:     user,
-			PasswordHash: os.Getenv("DASHBOARD_PASSWORD_SHA256"),
-		}
-	}
-	analyticsServer := server.NewAnalyticsServer(addr, rootLog, dashboardAuth)
-
-	analyticsServer.SetStreamerFunc(func() []*model.Streamer {
-		var all []*model.Streamer
-		for _, entry := range miners {
-			all = append(all, entry.miner.Streamers()...)
-		}
-		return all
-	})
-
-	analyticsServer.SetNotifyTestFunc(func(ctx context.Context) []error {
-		var allErrs []error
-		for _, entry := range miners {
-			d := entry.miner.NotifyDispatcher()
-			if d == nil || !d.HasNotifiers() {
-				continue
-			}
-			errs := d.TestAll(ctx, "Twitch Miner", "🔔 Test notification — if you see this, notifications are working!")
-			allErrs = append(allErrs, errs...)
-		}
-		if len(miners) > 0 && allErrs == nil {
-			// Check if any miner had notifiers at all.
-			hasAny := false
-			for _, entry := range miners {
-				d := entry.miner.NotifyDispatcher()
-				if d != nil && d.HasNotifiers() {
-					hasAny = true
-					break
-				}
-			}
-			if !hasAny {
-				return []error{fmt.Errorf("no notification providers configured in any miner")}
-			}
-		}
-		return allErrs
-	})
-
-	analyticsServer.SetDebugFunc(func() any {
-		snapshots := make([]miner.DebugSnapshot, 0, len(miners))
-		for _, entry := range miners {
-			snapshots = append(snapshots, entry.miner.DebugSnapshot())
-		}
-		return map[string]any{
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-			"miners":    snapshots,
-		}
-	})
-
+	analyticsServer := setupAnalyticsServer(":"+httpPort, rootLog, miners)
 	utils.SafeGo(func() {
 		if err := analyticsServer.Run(ctx); err != nil && ctx.Err() == nil {
 			rootLog.Error("Analytics server failed", "error", err)
 		}
 	})
-
-	rootLog.Info("🌐 Health/analytics server started", "addr", addr)
+	rootLog.Info("🌐 Health/analytics server started", "addr", ":"+httpPort)
 
 	var wg sync.WaitGroup
 	for _, entry := range miners {
 		cfg := entry.cfg
 		minerInstance := entry.miner
 		accountLog := rootLog.WithAccount(cfg.Username)
-
 		wg.Add(1)
-		go func(minerInstance *miner.Miner) {
+		go func(m *miner.Miner) {
 			defer wg.Done()
-			if err := minerInstance.Run(ctx); err != nil {
+			if err := m.Run(ctx); err != nil {
 				if ctx.Err() != nil {
 					accountLog.Info("Miner stopped due to shutdown", "account", cfg.Username)
 				} else {
@@ -307,12 +194,126 @@ func main() {
 	}
 
 	wg.Wait()
-
 	if ctx.Err() != nil {
 		rootLog.Info("🛑 Shutdown complete")
 	}
-
 	rootLog.Info("👋 All miners stopped. Goodbye!")
+}
+
+func resolveLogLevel(flag string) slog.Level {
+	if flag != "" {
+		return logger.ParseLevel(flag)
+	}
+	if env := os.Getenv("LOG_LEVEL"); env != "" {
+		return logger.ParseLevel(env)
+	}
+	return slog.LevelInfo
+}
+
+func resolvePort(flag string) string {
+	if env := os.Getenv("PORT"); env != "" {
+		return env
+	}
+	return flag
+}
+
+func buildMiners(configs []*config.AccountConfig, rootLog *logger.Logger, twitchRuntime *runtimecfg.Twitch) []minerEntry {
+	miners := make([]minerEntry, 0, len(configs))
+	for _, cfg := range configs {
+		if !cfg.IsEnabled() {
+			rootLog.Info("Account is disabled, skipping", "account", cfg.Username)
+			continue
+		}
+		accountLog := rootLog.WithAccount(cfg.Username)
+		miners = append(miners, minerEntry{cfg: cfg, miner: miner.NewMiner(cfg, accountLog, twitchRuntime)})
+	}
+	return miners
+}
+
+func setupAnalyticsServer(addr string, rootLog *logger.Logger, miners []minerEntry) *server.AnalyticsServer {
+	var dashboardAuth *server.DashboardAuth
+	if user := os.Getenv("DASHBOARD_USER"); user != "" {
+		dashboardAuth = &server.DashboardAuth{
+			Username:     user,
+			PasswordHash: os.Getenv("DASHBOARD_PASSWORD_SHA256"),
+		}
+	}
+	srv := server.NewAnalyticsServer(addr, rootLog, dashboardAuth)
+
+	srv.SetStreamerFunc(func() []*model.Streamer {
+		var all []*model.Streamer
+		for _, e := range miners {
+			all = append(all, e.miner.Streamers()...)
+		}
+		return all
+	})
+
+	srv.SetNotifyTestFunc(func(ctx context.Context) []error {
+		return testNotifiers(ctx, miners)
+	})
+
+	srv.SetDebugFunc(func() any {
+		snapshots := make([]miner.DebugSnapshot, 0, len(miners))
+		for _, e := range miners {
+			snapshots = append(snapshots, e.miner.DebugSnapshot())
+		}
+		return map[string]any{
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+			"miners":    snapshots,
+		}
+	})
+
+	return srv
+}
+
+func testNotifiers(ctx context.Context, miners []minerEntry) []error {
+	var allErrs []error
+	for _, entry := range miners {
+		d := entry.miner.NotifyDispatcher()
+		if d == nil || !d.HasNotifiers() {
+			continue
+		}
+		errs := d.TestAll(ctx, "Twitch Miner", "🔔 Test notification — if you see this, notifications are working!")
+		allErrs = append(allErrs, errs...)
+	}
+	if len(miners) > 0 && allErrs == nil {
+		for _, entry := range miners {
+			d := entry.miner.NotifyDispatcher()
+			if d != nil && d.HasNotifiers() {
+				return nil
+			}
+		}
+		return []error{fmt.Errorf("no notification providers configured in any miner")}
+	}
+	return allErrs
+}
+
+func runAutoUpdate(rootLog *logger.Logger, autoUpdate bool) {
+	info, err := updater.CheckForUpdate(context.Background(), version.Number)
+	if err != nil {
+		rootLog.Debug("Update check failed", "error", err)
+		return
+	}
+	if !info.Available {
+		return
+	}
+	if autoUpdate && info.AssetURL != "" {
+		rootLog.Info("New version available, downloading update", "version", info.Latest)
+		tmp, err := updater.DownloadAsset(context.Background(), info.AssetURL)
+		if err != nil {
+			rootLog.Warn("Auto-update download failed, continuing with current version", "error", err)
+			fmt.Print(updater.FormatNotification(info, version.Number))
+			return
+		}
+		if err := updater.ReplaceBinary(tmp); err != nil {
+			rootLog.Warn("Auto-update replace failed, continuing with current version", "error", err)
+			fmt.Print(updater.FormatNotification(info, version.Number))
+			return
+		}
+		updater.ExitForRestart(rootLog.Logger)
+	} else {
+		fmt.Print(updater.FormatNotification(info, version.Number))
+	}
 }
 
 func runHealthcheck(target string) error {

@@ -320,7 +320,7 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "make_predictions without bet",
 			cfg: map[string]any{
-				"streamers":        []any{map[string]any{"username": "foo"}},
+				"streamers":         []any{map[string]any{"username": "foo"}},
 				"streamer_defaults": map[string]any{"make_predictions": true},
 			},
 			wantErr: true,
@@ -328,7 +328,7 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "make_predictions with bet is valid",
 			cfg: map[string]any{
-				"streamers":        []any{map[string]any{"username": "foo"}},
+				"streamers":         []any{map[string]any{"username": "foo"}},
 				"streamer_defaults": map[string]any{"make_predictions": true, "bet": map[string]any{"strategy": "SMART"}},
 			},
 			wantErr: false,
@@ -370,8 +370,8 @@ func TestIsValidDuration(t *testing.T) {
 
 func TestCleanConfig(t *testing.T) {
 	cfg := map[string]any{
-		"enabled":  true,
-		"proxy":    "",
+		"enabled":   true,
+		"proxy":     "",
 		"empty_map": map[string]any{},
 		"streamers": []any{map[string]any{"username": "foo"}},
 		"nil_field": nil,

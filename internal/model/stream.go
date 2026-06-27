@@ -13,7 +13,7 @@ type Stream struct {
 	Game  *GameInfo `json:"game,omitempty"`
 	Tags  []Tag     `json:"tags,omitempty"`
 
-	HasDropsTag   bool       `json:"drops_tags"`
+	HasDropsTag bool       `json:"drops_tags"`
 	Campaigns   []Campaign `json:"campaigns,omitempty"`
 	CampaignIDs []string   `json:"campaign_ids,omitempty"`
 
@@ -23,7 +23,7 @@ type Stream struct {
 	Payload  map[string]any `json:"payload,omitempty"`
 
 	IsWatchStreakMissing bool    `json:"watch_streak_missing"`
-	MinuteWatched      float64 `json:"minute_watched"`
+	MinuteWatched        float64 `json:"minute_watched"`
 
 	lastUpdate             time.Time
 	minuteWatchedTimestamp time.Time
