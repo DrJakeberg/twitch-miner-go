@@ -88,24 +88,24 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
 
 ## 1.4. Running Locally
 
-**Prerequisites:** [Go 1.24+](https://go.dev/dl/)
+**Prerequisites:** [Go 1.25+](https://go.dev/dl/)
 
 **Unix (macOS/Linux):**
 
 ```bash
-./run.sh
+./_run.sh
 ```
 
 **Windows:**
 
 ```batch
-run.bat
+_run.bat
 ```
 
 **With custom flags:**
 
 ```bash
-./run.sh -config configs -port 9090 -log-level debug
+./_run.sh -config configs -port 9090 -log-level debug
 ```
 
 > The scripts build the binary and run it in one step. You can also build manually with `go build -o twitch-miner-go ./cmd/twitch-miner-go`.
@@ -134,7 +134,7 @@ cp configs/example.yaml.example configs/your_twitch_username.yaml
 
 See [`configs/example.yaml.example`](configs/example.yaml.example) for the full schema. Files with a `.yaml.example` extension are not loaded as configs — only `.yaml` and `.yml` files are loaded.
 
-> **Prefer a GUI?** Run `edit-config.bat` (Windows) or `./edit-config.sh` (Linux/macOS) to open a visual config editor in your browser. Requires [Node.js](https://nodejs.org/). See [Config Editor](#config-editor) below for details.
+> **Prefer a GUI?** Run `_edit-config.bat` (Windows) or `./_edit-config.sh` (Linux/macOS) to open a visual config editor in your browser. No additional runtimes required — the editor is a self-contained Go binary. See [Config Editor](#config-editor) below for details.
 
 > **After cloning:** The repository may contain personal account configs (e.g. `guliveer_.yaml`). Delete them and create your own from the example template — these configs are specific to the maintainer's accounts and will not work for you.
 
@@ -191,28 +191,39 @@ followers:
 
 ### Config Editor
 
-A browser-based GUI for creating, editing, and deleting account configs. Runs as a lightweight local Node.js server — no changes to the miner binary required.
+A self-contained Go binary for creating, editing, and deleting account configs. Supports two modes:
+
+- **Web GUI** (default) — opens a browser-based editor at `http://localhost:3000`
+- **TUI** — interactive terminal forms, no browser required
 
 **Quick start:**
 
 ```bash
 # Windows
-edit-config.bat
+_edit-config.bat
 
 # Linux / macOS
-./edit-config.sh
+./_edit-config.sh
 ```
 
-The editor opens automatically in your browser at `http://localhost:3000`. It reads and writes YAML files directly in `configs/`.
-
-**Requirements:** [Node.js](https://nodejs.org/) (v18+). Dependencies are installed automatically on first run.
+The script builds the binary on first run (requires Go), then launches it. The web editor opens automatically in your browser and reads/writes YAML files directly in `configs/`.
 
 **Options:**
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--port`, `-p` | `3000` | Port for the editor server |
-| `--config`, `-c` | `configs/` | Path to the config directory |
+| `--config` | `configs/` | Path to the config directory |
+| `--port` | `3000` | Port for the web server |
+| `--tui` | _(off)_ | Launch TUI mode instead of the web server |
+| `--no-browser` | _(off)_ | Web mode: don't auto-open the browser |
+
+**TUI mode** provides an interactive terminal interface — useful in headless environments or when a browser isn't available:
+
+```bash
+./_edit-config.sh --tui
+# or
+config-editor --tui --config /path/to/configs
+```
 
 > **Note:** The editor only saves files — the miner must be restarted to pick up changes.
 
@@ -603,10 +614,10 @@ Run twitch-miner-go as a native Linux service with automatic restarts and boot s
 
 ```bash
 # Build the binary first
-./run.sh   # Ctrl+C after build completes
+./_run.sh   # Ctrl+C after build completes
 
 # Run the installer wizard
-sudo ./install-service.sh install
+sudo ./_install-service.sh install
 ```
 
 The wizard will prompt for service name, paths, port, user, and optionally enable + start the service.
@@ -628,7 +639,7 @@ tail -f /var/log/twitch-miner-go.log  # follow logs
 ### Uninstalling
 
 ```bash
-sudo ./install-service.sh uninstall
+sudo ./_install-service.sh uninstall
 ```
 
 ### Default File Locations
@@ -648,7 +659,7 @@ Run twitch-miner-go as a Windows service with automatic restarts. The binary is 
 
 ```bat
 REM Right-click and select "Run as administrator"
-install-service.bat install
+_install-service.bat install
 ```
 
 The wizard will prompt for config directory, port, and log level.
@@ -656,16 +667,16 @@ The wizard will prompt for config directory, port, and log level.
 ### Managing the Service
 
 ```bat
-install-service.bat start       REM starts (rebuilds the binary first)
-install-service.bat stop
-install-service.bat restart     REM restart with a fresh rebuild
-install-service.bat status
+_install-service.bat start       REM starts (rebuilds the binary first)
+_install-service.bat stop
+_install-service.bat restart     REM restart with a fresh rebuild
+_install-service.bat status
 ```
 
 ### Uninstalling
 
 ```bat
-install-service.bat uninstall
+_install-service.bat uninstall
 ```
 
 > See [DEPLOYMENT.md](DEPLOYMENT.md) for the full Windows service deployment guide.
@@ -752,7 +763,7 @@ On startup, the miner automatically checks for new releases in the background. I
 Pass `-auto-update` to have the miner download and apply the update itself:
 
 ```bash
-./run.sh -auto-update
+./_run.sh -auto-update
 ```
 
 When a new release is detected:

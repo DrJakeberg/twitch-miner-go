@@ -4,7 +4,7 @@ This page walks you from a fresh clone to a running miner in under 5 minutes.
 
 ## Prerequisites
 
-- [Go 1.24+](https://go.dev/dl/) — required for local builds
+- [Go 1.25+](https://go.dev/dl/) — required for local builds
 - A Twitch account
 - Twitch runtime identifiers (see [Authentication](Authentication) and [How to obtain Twitch runtime identifiers](https://github.com/Guliveer/twitch-miner-go#how-to-obtain-twitch-runtime-identifiers))
 
@@ -45,12 +45,12 @@ See [How to obtain Twitch runtime identifiers](https://github.com/Guliveer/twitc
 
 **Linux / macOS:**
 ```bash
-./run.sh
+./_run.sh
 ```
 
 **Windows:**
 ```bat
-run.bat
+_run.bat
 ```
 
 Both scripts build the binary and run it immediately.
@@ -82,7 +82,7 @@ The analytics dashboard is available at `http://localhost:8080`.
 Pass `-auto-update` to have the miner update itself on startup:
 
 ```bash
-./run.sh -auto-update
+./_run.sh -auto-update
 ```
 
 When a new release is found, the miner downloads the new binary, replaces itself, and exits — the service manager restarts it with the new version. If anything goes wrong, it falls back to printing the usual update notice.
@@ -92,7 +92,7 @@ For a **systemd** service, add the flag to `ExecStart`:
 ExecStart=/usr/local/bin/twitch-miner-go -config /etc/twitch-miner-go/configs -auto-update
 ```
 
-For a **Windows NSSM** service, add `-auto-update` to the service arguments (re-run `install-service.bat` or edit via NSSM GUI).
+For a **Windows NSSM** service, add `-auto-update` to the service arguments (re-run `_install-service.bat` or edit via NSSM GUI).
 
 > Not useful for Docker or Fly.io — those update by pulling a new image.
 
