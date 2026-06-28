@@ -1,5 +1,13 @@
 title: "[Q&A] "
 body:
+  - type: markdown
+    attributes:
+      value: >
+        **Found a bug? Want to request a feature?**
+        [Bug Report](https://github.com/Guliveer/twitch-miner-go/issues/new?template=bug_report.yml) and
+        [Feature Request](https://github.com/Guliveer/twitch-miner-go/issues/new?template=feature_request.yml)
+        issues are triaged and tracked — use them instead of a Q&A discussion so nothing gets lost.
+
   - type: checkboxes
     id: preflight
     attributes:
