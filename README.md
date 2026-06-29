@@ -136,7 +136,7 @@ See [`configs/example.yaml.example`](configs/example.yaml.example) for the full 
 
 > **Prefer a GUI?** Run `_edit-config.bat` (Windows) or `./_edit-config.sh` (Linux/macOS) to open a visual config editor in your browser. No additional runtimes required — the editor is a self-contained Go binary. See [Config Editor](#config-editor) below for details.
 
-> **After cloning:** The repository may contain personal account configs (e.g. `guliveer_.yaml`). Delete them and create your own from the example template — these configs are specific to the maintainer's accounts and will not work for you.
+> **After cloning:** The repository includes the maintainer's own account configs (e.g. `guliveer_.yaml`). These are skipped automatically unless `RUN_OWNER_ACCOUNTS=true` is set — so they will not run on your machine and you do not need to delete or disable them. Just create your own config from the example template.
 
 ### 1.5.1. Quick Start
 
@@ -250,6 +250,7 @@ For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN
 | `TWITCH_CLIENT_ID_IOS`      | Twitch iOS client ID (falls back to built-in default if unset)                                | built-in default |
 | `DASHBOARD_USER`            | Username for analytics dashboard HTTP basic auth                                              | _(disabled)_     |
 | `DASHBOARD_PASSWORD_SHA256` | SHA-256 hash of the dashboard password                                                        | _(none)_         |
+| `RUN_OWNER_ACCOUNTS`        | Set to `true` to also run the maintainer's own account configs included in the repository     | `false`          |
 
 > **Note:** Twitch client IDs and versions have compiled-in defaults (from `internal/constants`) that are used when the corresponding environment variables are unset. These defaults may become stale as Twitch updates their clients, so it is recommended to set these environment variables explicitly.
 

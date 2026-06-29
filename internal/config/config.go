@@ -42,6 +42,10 @@ func (ac *AccountConfig) ProxyURL() *url.URL {
 // DefaultConfigDir is the default directory for account configuration files.
 const DefaultConfigDir = "configs"
 
+// ownerAccounts lists config filenames (without extension) that belong to the
+// repository owner. These are skipped by default unless RUN_OWNER_ACCOUNTS=true.
+var ownerAccounts = []string{"guliveer_", "guliveer_2"}
+
 // LoadAccountConfig loads a single account configuration from a YAML file,
 // then overlays environment variables for secrets.
 func LoadAccountConfig(path string) (*AccountConfig, error) {
@@ -92,6 +96,10 @@ func LoadAllAccountConfigs(dir string) ([]*AccountConfig, error) {
 			return nil, fmt.Errorf("loading %s: %w", name, err)
 		}
 
+		if isOwnerAccount(cfg.Username) && os.Getenv("RUN_OWNER_ACCOUNTS") != "true" {
+			continue
+		}
+
 		configs = append(configs, cfg)
 	}
 
@@ -100,6 +108,15 @@ func LoadAllAccountConfigs(dir string) ([]*AccountConfig, error) {
 	}
 
 	return configs, nil
+}
+
+func isOwnerAccount(username string) bool {
+	for _, name := range ownerAccounts {
+		if strings.EqualFold(name, username) {
+			return true
+		}
+	}
+	return false
 }
 
 func applyDefaults(cfg *AccountConfig) {

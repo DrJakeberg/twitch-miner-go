@@ -18,6 +18,8 @@ cd twitch-miner-go
 cp configs/example.yaml.example configs/your_twitch_username.yaml
 ```
 
+> **Note:** The repository includes the maintainer's own account configs. They are skipped automatically — you do not need to delete or disable them. Set `RUN_OWNER_ACCOUNTS=true` only if you are the maintainer running on your own infrastructure.
+
 Open the file and set at least:
 
 ```yaml
