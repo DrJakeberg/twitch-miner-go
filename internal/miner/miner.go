@@ -34,7 +34,9 @@ type Miner struct {
 	twitch twitch.API
 	pubsub *pubsub.Pool
 	chat   *chat.Manager
-	notify *notify.Dispatcher
+	notify            *notify.Dispatcher
+	suppressLifecycle bool
+	oneTimeEvent      model.Event
 
 	running atomic.Bool
 
@@ -81,6 +83,19 @@ func (m *Miner) Streamers() []*model.Streamer {
 // May return nil if the miner hasn't been started yet.
 func (m *Miner) NotifyDispatcher() *notify.Dispatcher {
 	return m.notify
+}
+
+// SetSuppressLifecycleNotify controls whether MINER_STARTED, MINER_STOPPED,
+// and MINER_CRASHED notifications are sent. Must be called before Run().
+func (m *Miner) SetSuppressLifecycleNotify(suppress bool) {
+	m.suppressLifecycle = suppress
+}
+
+// SetOneTimeEvent sets an additional event to dispatch once immediately after
+// MINER_STARTED. Intended for DB-driven events like ACCOUNT_CONFIG_RELOADED.
+// Must be called before Run().
+func (m *Miner) SetOneTimeEvent(event model.Event) {
+	m.oneTimeEvent = event
 }
 
 // IsRunning reports whether the miner is currently running its main loop.
@@ -136,6 +151,7 @@ func (m *Miner) Run(ctx context.Context) error {
 	}
 
 	m.notify = notify.NewDispatcher(m.cfg.Notifications, m.log)
+	m.notify.SuppressLifecycle(m.suppressLifecycle)
 	m.log.SetNotifyFunc(m.notify.NotifyFunc(m.cfg.Username))
 
 	m.pubsub = pubsub.NewPool(m.twitch.AuthProvider(), m.log, m)
@@ -226,6 +242,11 @@ func (m *Miner) Run(ctx context.Context) error {
 
 	m.notify.DispatchSync(ctx, model.EventMinerStarted, m.cfg.Username,
 		fmt.Sprintf("🚀 Miner started — %s", version.String()))
+
+	if m.oneTimeEvent != "" {
+		m.notify.DispatchSync(ctx, m.oneTimeEvent, m.cfg.Username,
+			oneTimeEventMessage(m.oneTimeEvent, m.cfg.Username))
+	}
 
 	err = g.Wait()
 
@@ -442,4 +463,13 @@ func (m *Miner) joinInitialChats() {
 // It delegates to the handler logic in handler.go.
 func (m *Miner) HandlePubSubMessage(ctx context.Context, msg *model.Message) {
 	m.handleMessage(ctx, msg)
+}
+
+func oneTimeEventMessage(event model.Event, username string) string {
+	switch event {
+	case model.EventAccountConfigReloaded:
+		return fmt.Sprintf("🔄 Account config reloaded from DB — %s", username)
+	default:
+		return fmt.Sprintf("%s — %s", string(event), username)
+	}
 }
