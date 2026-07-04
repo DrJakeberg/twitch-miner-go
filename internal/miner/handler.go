@@ -75,7 +75,7 @@ func (m *Miner) handlePointsEarnedOrSpent(ctx context.Context, msg *model.Messag
 
 		if streamer != nil {
 			streamer.Mu.Lock()
-			streamer.UpdateHistory(reasonCode, earned, 1)
+			streamer.UpdateHistory(string(mapReasonToEvent(reasonCode)), earned, 1)
 			streamer.Mu.Unlock()
 
 			streamer.Mu.RLock()
