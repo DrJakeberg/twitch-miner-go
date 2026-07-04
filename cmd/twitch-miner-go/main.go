@@ -86,6 +86,7 @@ func main() {
 	configDir := flag.String("config", "configs", "Path to the configuration directory")
 	port := flag.String("port", "8080", "Port for the health/analytics HTTP server")
 	logLevel := flag.String("log-level", "", "Log level: DEBUG, INFO, WARN, ERROR (overrides LOG_LEVEL env)")
+	logFormat := flag.String("log-format", "", "Log format: text or json (overrides LOG_FORMAT env)")
 	healthcheckURL := flag.String("healthcheck-url", "", "Probe the given HTTP URL and exit with status 0 only on HTTP 200")
 	showVersion             := flag.Bool("version", false, "Print version and exit")
 	autoUpdate              := flag.Bool("auto-update", false, "Automatically download and apply updates on startup")
@@ -114,8 +115,9 @@ func main() {
 	level := resolveLogLevel(*logLevel)
 	httpPort := resolvePort(*port)
 	colored := logger.ColorSupported()
+	format := resolveLogFormat(*logFormat)
 
-	rootLog, err := logger.Setup(logger.Config{Level: level, Colored: colored})
+	rootLog, err := logger.Setup(logger.Config{Level: level, Colored: colored, Format: format})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to setup logger: %v\n", err)
 		os.Exit(1)
@@ -196,6 +198,16 @@ func resolveLogLevel(flag string) slog.Level {
 		return logger.ParseLevel(env)
 	}
 	return slog.LevelInfo
+}
+
+func resolveLogFormat(flag string) string {
+	if flag != "" {
+		return strings.ToLower(flag)
+	}
+	if env := os.Getenv("LOG_FORMAT"); env != "" {
+		return strings.ToLower(env)
+	}
+	return "text"
 }
 
 func resolvePort(flag string) string {

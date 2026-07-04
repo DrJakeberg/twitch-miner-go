@@ -118,6 +118,7 @@ _run.bat
 | `-config`                | `configs` | Path to the configuration directory                             |
 | `-port`                  | `8080`    | Port for the health/analytics server                            |
 | `-log-level`             | `INFO`    | Log level: DEBUG, INFO, WARN, ERROR (effective default: `INFO`) |
+| `-log-format`            | `text`    | Log file format: `text` (logfmt) or `json` (Loki/Grafana-compatible) |
 | `-healthcheck-url`       | _(none)_  | Probe the given HTTP URL and exit 0 on HTTP 200                 |
 | `-version`               | `false`   | Print version and exit                                          |
 | `-auto-update`           | `false`   | Download and apply the latest release automatically on startup  |
@@ -279,6 +280,7 @@ For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN
 | Variable                    | Description                                                                                   | Default          |
 |-----------------------------|-----------------------------------------------------------------------------------------------|------------------|
 | `LOG_LEVEL`                 | Log level (`DEBUG`, `INFO`, `WARN`, `ERROR`)                                                  | `INFO`           |
+| `LOG_FORMAT`                | Log file format: `text` (logfmt) or `json` (Loki/Grafana-compatible structured JSON)          | `text`           |
 | `PORT`                      | HTTP server port for health/analytics                                                         | `8080`           |
 | `DATA_DIR`                  | Persistent data directory (cookies, state)                                                    | `.`              |
 | `TWITCH_CLIENT_ID_TV`       | Twitch TV client ID (falls back to built-in default if unset; override recommended)           | built-in default |

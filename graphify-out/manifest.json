@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "cmd/twitch-miner-go/main.go": {
-    "mtime": 1783006657.4645538,
-    "ast_hash": "5d2766ff5dc4b61e364853e8a945d7fe",
+    "mtime": 1783192224.5760288,
+    "ast_hash": "db77555ffdb7a504a20962f9462e4dfb",
     "semantic_hash": ""
   },
   "go.mod": {
@@ -20,12 +20,12 @@
     "semantic_hash": ""
   },
   "internal/auth/auth.go": {
-    "mtime": 1782763813.0176806,
+    "mtime": 1783170452.8293157,
     "ast_hash": "ff5f8eb8278bde39ef4d54b51b5952c4",
     "semantic_hash": ""
   },
   "internal/auth/cookies.go": {
-    "mtime": 1782763813.0176806,
+    "mtime": 1783170457.5863323,
     "ast_hash": "07c536c9bac8981fe8fa75a9901b5d8f",
     "semantic_hash": ""
   },
@@ -55,7 +55,7 @@
     "semantic_hash": ""
   },
   "internal/config/account.go": {
-    "mtime": 1783006657.4665499,
+    "mtime": 1783170462.83239,
     "ast_hash": "62d2c84647be8e8ef8b072cdd6393838",
     "semantic_hash": ""
   },
@@ -140,8 +140,8 @@
     "semantic_hash": ""
   },
   "internal/logger/logger.go": {
-    "mtime": 1783006657.4680505,
-    "ast_hash": "e50c97c02928644a1b432176fa6b4521",
+    "mtime": 1783192201.6885562,
+    "ast_hash": "46229c2d96e8999f43eb74d68e1effd7",
     "semantic_hash": ""
   },
   "internal/miner/debug.go": {
@@ -580,7 +580,7 @@
     "semantic_hash": ""
   },
   ".github/wiki/Authentication.md": {
-    "mtime": 1782763812.9826474,
+    "mtime": 1783170473.6303852,
     "ast_hash": "3f1fd5308012c5e60c4b4b357fc4bc8e",
     "semantic_hash": ""
   },
@@ -665,7 +665,7 @@
     "semantic_hash": ""
   },
   "DEPLOYMENT.md": {
-    "mtime": 1782763812.9911504,
+    "mtime": 1783170444.6750185,
     "ast_hash": "a85f78d702e7503e43e44968d447cb1d",
     "semantic_hash": ""
   },
@@ -680,8 +680,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1783006657.4630508,
-    "ast_hash": "50acf2ea21596d649bd440c4563b4b6c",
+    "mtime": 1783192299.7378361,
+    "ast_hash": "246523f40e9e64ca87d47b70876b7de5",
     "semantic_hash": ""
   },
   "SECURITY.md": {
@@ -867,6 +867,11 @@
   "internal/store/store_test.go": {
     "mtime": 1783006657.489549,
     "ast_hash": "cde719866f9f2a92e8c93690ed080a40",
+    "semantic_hash": ""
+  },
+  "configs/georg3ks.yaml": {
+    "mtime": 1783036482.911091,
+    "ast_hash": "27c9cc3143a3957dce127248cd65398e",
     "semantic_hash": ""
   }
 }

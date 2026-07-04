@@ -74,6 +74,7 @@ type Config struct {
 	LogDir      string
 	AccountName string
 	NotifyFn    NotifyFunc
+	Format      string
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -119,9 +120,16 @@ func Setup(cfg Config) (*Logger, error) {
 			return nil, fmt.Errorf("opening log file: %w", err)
 		}
 
-		fileHandler := slog.NewTextHandler(logFile, &slog.HandlerOptions{
-			Level: cfg.FileLevel,
-		})
+		opts := &slog.HandlerOptions{Level: cfg.FileLevel}
+		var fileHandler slog.Handler
+		if cfg.Format == "json" {
+			fileHandler = slog.NewJSONHandler(logFile, opts)
+		} else {
+			fileHandler = slog.NewTextHandler(logFile, opts)
+		}
+		if cfg.AccountName != "" {
+			fileHandler = fileHandler.WithAttrs([]slog.Attr{slog.String("account", cfg.AccountName)})
+		}
 		handlers = append(handlers, fileHandler)
 	}
 
@@ -160,7 +168,7 @@ func (l *Logger) Event(ctx context.Context, event model.Event, msg string, args 
 	if emoji, ok := eventEmoji[string(event)]; ok {
 		msg = emoji + " " + msg
 	}
-	l.Info(msg, append(args, "event", string(event))...)
+	l.Info(msg, append(args, "event", string(event), "event_type", string(event))...)
 
 	if fn, ok := l.notifyFn.Load().(NotifyFunc); ok && fn != nil {
 		// Build clean args string, excluding streamer and category (shown in title)
