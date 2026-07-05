@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/Guliveer/twitch-miner-go/internal/auth"
 	"github.com/Guliveer/twitch-miner-go/internal/chat"
 	"github.com/Guliveer/twitch-miner-go/internal/config"
 	"github.com/Guliveer/twitch-miner-go/internal/constants"
@@ -106,6 +107,17 @@ func (m *Miner) IsRunning() bool {
 // Username returns the account username for this miner.
 func (m *Miner) Username() string {
 	return m.cfg.Username
+}
+
+// DeviceCodeStatus returns the current pending device code flow state, or nil.
+// Returns nil if the twitch client hasn't been created yet or if no device code
+// flow is active.
+func (m *Miner) DeviceCodeStatus() *auth.DeviceCodeStatus {
+	client, ok := m.twitch.(*twitch.Client)
+	if !ok {
+		return nil
+	}
+	return client.Auth.DeviceCodeStatus()
 }
 
 // Run is the main entry point for the miner. It performs the full lifecycle

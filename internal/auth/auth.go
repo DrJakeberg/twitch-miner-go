@@ -40,6 +40,15 @@ type Authenticator struct {
 
 	integrityToken  string
 	integrityExpire int64
+
+	// Pending device code flow state (set during loginWithDeviceCode).
+	// Uses a separate mutex so DeviceCodeStatus() is readable while Login()
+	// holds the main mu.
+	pendingCode     string
+	pendingUserCode string
+	pendingVerifyURI string
+	pendingExpiresAt int64
+	pendingMu       sync.Mutex
 }
 
 // NewAuthenticator creates a new Authenticator from the account configuration.
@@ -271,6 +280,23 @@ func (a *Authenticator) ClientIDsForGQL() []string {
 // AndroidClientID returns the runtime-configured Android client ID.
 func (a *Authenticator) AndroidClientID() string {
 	return a.runtime.ClientIDAndroid
+}
+
+// DeviceCodeStatus returns the current pending device code state, or nil
+// if no device code flow is active.
+func (a *Authenticator) DeviceCodeStatus() *DeviceCodeStatus {
+	a.pendingMu.Lock()
+	defer a.pendingMu.Unlock()
+
+	if a.pendingCode == "" {
+		return nil
+	}
+
+	return &DeviceCodeStatus{
+		UserCode:        a.pendingUserCode,
+		VerificationURI: a.pendingVerifyURI,
+		ExpiresAt:       a.pendingExpiresAt,
+	}
 }
 
 // ClearIntegrityToken invalidates the cached integrity token so the next

@@ -13,6 +13,13 @@ import (
 	"github.com/Guliveer/twitch-miner-go/internal/constants"
 )
 
+// DeviceCodeStatus represents the current state of a pending device code flow.
+type DeviceCodeStatus struct {
+	UserCode        string `json:"user_code"`
+	VerificationURI string `json:"verification_uri"`
+	ExpiresAt       int64  `json:"expires_at"`
+}
+
 // DeviceCodeResponse represents the response from the device code endpoint.
 type DeviceCodeResponse struct {
 	DeviceCode      string `json:"device_code"`
@@ -53,6 +60,22 @@ func (a *Authenticator) loginWithDeviceCode(ctx context.Context) error {
 	fmt.Println("─────────────────────────────────────")
 	fmt.Println("Waiting for authorization...")
 	fmt.Println()
+
+	a.pendingMu.Lock()
+	a.pendingCode = deviceCodeResp.DeviceCode
+	a.pendingUserCode = deviceCodeResp.UserCode
+	a.pendingVerifyURI = deviceCodeResp.VerificationURI
+	a.pendingExpiresAt = time.Now().Add(time.Duration(deviceCodeResp.ExpiresIn) * time.Second).Unix()
+	a.pendingMu.Unlock()
+
+	defer func() {
+		a.pendingMu.Lock()
+		a.pendingCode = ""
+		a.pendingUserCode = ""
+		a.pendingVerifyURI = ""
+		a.pendingExpiresAt = 0
+		a.pendingMu.Unlock()
+	}()
 
 	tokenResp, err := a.pollForToken(ctx, deviceCodeResp.DeviceCode, deviceCodeResp.Interval, deviceCodeResp.ExpiresIn)
 	if err != nil {

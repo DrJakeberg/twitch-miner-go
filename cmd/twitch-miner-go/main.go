@@ -305,6 +305,19 @@ func setupAnalyticsServer(addr string, rootLog *logger.Logger, mgr *managedminer
 
 	srv.SetAccountStore(accountStore)
 
+	srv.SetAuthStatusFunc(func(username string) any {
+		for _, e := range mgr.Entries() {
+			if strings.EqualFold(e.Miner.Username(), username) {
+				status := e.Miner.DeviceCodeStatus()
+				if status == nil {
+					return nil
+				}
+				return status
+			}
+		}
+		return nil
+	})
+
 	return srv
 }
 

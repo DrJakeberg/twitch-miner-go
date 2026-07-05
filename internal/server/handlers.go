@@ -98,6 +98,31 @@ func (s *AnalyticsServer) handleDebug(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, fn())
 }
 
+func (s *AnalyticsServer) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
+	username := strings.ToLower(r.PathValue("username"))
+	if username == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "missing username"})
+		return
+	}
+
+	s.mu.RLock()
+	fn := s.authStatusFunc
+	s.mu.RUnlock()
+
+	if fn == nil {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "no_pending"})
+		return
+	}
+
+	result := fn(username)
+	if result == nil {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "no_pending"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
 // filterStreamers applies query-parameter filters to a streamer list.
 // When a filter parameter is empty the corresponding check is skipped,
 // so callers with no filters get the full list back unchanged.

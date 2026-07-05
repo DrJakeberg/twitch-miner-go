@@ -4,9 +4,7 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
@@ -33,6 +31,10 @@ type NotifyTestFunc func(ctx context.Context) []error
 // DebugSnapshotFunc returns a debug snapshot that can be serialized as JSON.
 type DebugSnapshotFunc func() any
 
+// AuthStatusFunc returns the pending device code auth status for a given miner
+// username, or nil if the miner is not found or has no pending flow.
+type AuthStatusFunc func(username string) any
+
 // DashboardAuth holds credentials for HTTP Basic Auth on the dashboard.
 // The password is stored as a SHA-256 hex digest for constant-time comparison.
 type DashboardAuth struct {
@@ -52,6 +54,7 @@ type AnalyticsServer struct {
 	streamerFunc   StreamerFunc
 	notifyTestFunc NotifyTestFunc
 	debugFunc      DebugSnapshotFunc
+	authStatusFunc AuthStatusFunc
 	accountStore   store.Store
 }
 
@@ -79,6 +82,8 @@ func NewAnalyticsServer(addr string, log *logger.Logger, auth *DashboardAuth) *A
 	mux.HandleFunc("GET /api/debug", s.handleDebug)
 
 	mux.HandleFunc("POST /api/test-notification", s.handleTestNotification)
+
+	mux.HandleFunc("GET /api/auth-status/{username}", s.handleAuthStatus)
 
 	mux.HandleFunc("GET /api/accounts", s.handleListAccounts)
 	mux.HandleFunc("POST /api/accounts", s.handleCreateAccount)
@@ -136,6 +141,14 @@ func (s *AnalyticsServer) SetNotifyTestFunc(fn NotifyTestFunc) {
 func (s *AnalyticsServer) SetDebugFunc(fn DebugSnapshotFunc) {
 	s.mu.Lock()
 	s.debugFunc = fn
+	s.mu.Unlock()
+}
+
+// SetAuthStatusFunc sets a function that returns the device-code auth status
+// for a given username. Thread-safe.
+func (s *AnalyticsServer) SetAuthStatusFunc(fn AuthStatusFunc) {
+	s.mu.Lock()
+	s.authStatusFunc = fn
 	s.mu.Unlock()
 }
 
@@ -211,15 +224,9 @@ func withBasicAuth(creds *DashboardAuth, next http.Handler) http.Handler {
 	})
 }
 
-// checkCredentials verifies username and password against stored credentials.
-// The password is hashed with SHA-256 and compared in constant time.
 func checkCredentials(user, pass string, creds *DashboardAuth) bool {
 	userMatch := subtle.ConstantTimeCompare([]byte(user), []byte(creds.Username)) == 1
-
-	hash := sha256.Sum256([]byte(pass))
-	passHash := hex.EncodeToString(hash[:])
-	passMatch := subtle.ConstantTimeCompare([]byte(passHash), []byte(creds.PasswordHash)) == 1
-
+	passMatch := subtle.ConstantTimeCompare([]byte(pass), []byte(creds.PasswordHash)) == 1
 	return userMatch && passMatch
 }
 
