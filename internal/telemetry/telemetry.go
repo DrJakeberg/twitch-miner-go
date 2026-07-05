@@ -6,7 +6,8 @@
 // TELEMETRY_URL env var (useful for forks running their own server).
 //
 // Heartbeat payload is anonymous: instance_id (random UUID), version, os, arch,
-// and deployment label. No personal data, no channel names, no IPs.
+// deployment label, running accounts count, and total configs count.
+// No personal data, no channel names, no IPs.
 package telemetry
 
 import (
@@ -51,11 +52,13 @@ type Config struct {
 
 // heartbeatPayload is the JSON body sent to the telemetry server.
 type heartbeatPayload struct {
-	InstanceID string `json:"instance_id"`
-	Version    string `json:"version"`
-	OS         string `json:"os"`
-	Arch       string `json:"arch"`
-	Deployment string `json:"deployment"`
+	InstanceID      string `json:"instance_id"`
+	Version         string `json:"version"`
+	OS              string `json:"os"`
+	Arch            string `json:"arch"`
+	Deployment      string `json:"deployment"`
+	RunningAccounts int    `json:"running_accounts"`
+	TotalConfigs    int    `json:"total_configs"`
 }
 
 // LoadConfigFromEnv reads heartbeat configuration from environment variables.
@@ -104,9 +107,23 @@ func LoadConfigFromEnv(log *slog.Logger) (*Config, error) {
 
 // Sender sends periodic heartbeats to a telemetry server.
 type Sender struct {
-	cfg    *Config
-	client *http.Client
-	log    *slog.Logger
+	cfg              *Config
+	client           *http.Client
+	log              *slog.Logger
+	runningAccounts  func() int
+	totalConfigs     func() int
+}
+
+// SetRunningAccountsFunc sets a callback that returns the current number
+// of running miner accounts. Called on each heartbeat.
+func (s *Sender) SetRunningAccountsFunc(fn func() int) {
+	s.runningAccounts = fn
+}
+
+// SetTotalConfigsFunc sets a callback that returns the total number of
+// account configurations (including disabled). Called on each heartbeat.
+func (s *Sender) SetTotalConfigsFunc(fn func() int) {
+	s.totalConfigs = fn
 }
 
 // NewSender creates a new heartbeat sender.
@@ -118,11 +135,20 @@ func NewSender(cfg *Config, log *slog.Logger) *Sender {
 	}
 }
 
-// Run starts the heartbeat loop. It sends a heartbeat immediately on start,
-// then repeats at the configured interval. Blocks until ctx is cancelled.
-func (s *Sender) Run(ctx context.Context) {
+// Run starts the heartbeat loop. It waits for ready (if non-nil) to be
+// closed before sending the first heartbeat, then repeats at the configured
+// interval. Blocks until ctx is cancelled.
+func (s *Sender) Run(ctx context.Context, ready <-chan struct{}) {
 	if s.cfg == nil {
 		return
+	}
+
+	if ready != nil {
+		select {
+		case <-ready:
+		case <-ctx.Done():
+			return
+		}
 	}
 
 	s.sendHeartbeat(ctx)
@@ -141,12 +167,23 @@ func (s *Sender) Run(ctx context.Context) {
 }
 
 func (s *Sender) sendHeartbeat(ctx context.Context) {
+	runningAccounts := 0
+	if s.runningAccounts != nil {
+		runningAccounts = s.runningAccounts()
+	}
+	totalConfigs := 0
+	if s.totalConfigs != nil {
+		totalConfigs = s.totalConfigs()
+	}
+
 	payload := heartbeatPayload{
-		InstanceID: s.cfg.InstanceID,
-		Version:    s.cfg.Version,
-		OS:         runtime.GOOS,
-		Arch:       runtime.GOARCH,
-		Deployment: detectDeployment(),
+		InstanceID:      s.cfg.InstanceID,
+		Version:         s.cfg.Version,
+		OS:              runtime.GOOS,
+		Arch:            runtime.GOARCH,
+		Deployment:      detectDeployment(),
+		RunningAccounts: runningAccounts,
+		TotalConfigs:    totalConfigs,
 	}
 
 	body, err := json.Marshal(payload)
@@ -183,6 +220,8 @@ func (s *Sender) sendHeartbeat(ctx context.Context) {
 		"deployment", payload.Deployment,
 		"os", payload.OS,
 		"arch", payload.Arch,
+		"running_accounts", payload.RunningAccounts,
+		"total_configs", payload.TotalConfigs,
 	)
 }
 

@@ -27,22 +27,32 @@ type Poller struct {
 
 	// watermark: username → last seen updated_at Unix seconds
 	watermark map[string]int64
+
+	initialSyncDone chan struct{}
+	// InitialSyncDone is closed after the first sync() completes.
+	InitialSyncDone <-chan struct{}
 }
 
 // NewPoller creates a Poller that polls the given store on the given interval.
 func NewPoller(st store.Store, mgr minerManager, interval time.Duration, log *logger.Logger) *Poller {
+	ch := make(chan struct{})
 	return &Poller{
-		store:     st,
-		manager:   mgr,
-		interval:  interval,
-		log:       log,
-		watermark: make(map[string]int64),
+		store:           st,
+		manager:         mgr,
+		interval:        interval,
+		log:             log,
+		watermark:       make(map[string]int64),
+		initialSyncDone: ch,
+		InitialSyncDone: ch,
 	}
 }
 
-// Run starts the polling loop. It blocks until ctx is cancelled.
+// Run starts the polling loop. It calls sync() immediately, closes the
+// InitialSyncDone channel to signal the first load is complete, then
+// continues polling on the configured interval. Blocks until ctx is cancelled.
 func (p *Poller) Run(ctx context.Context) {
 	p.sync(ctx)
+	close(p.initialSyncDone)
 
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()

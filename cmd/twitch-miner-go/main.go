@@ -152,6 +152,8 @@ func main() {
 	dbEnabled := os.Getenv("DB_ENABLED") == "true"
 	var accountStore store.Store
 
+	var initialSync <-chan struct{}
+
 	if dbEnabled {
 		dsn := os.Getenv("DB_DSN")
 		if dsn == "" {
@@ -168,11 +170,13 @@ func main() {
 
 		pollInterval := resolvePollInterval()
 		poller := managedminer.NewPoller(pg, mgr, pollInterval, rootLog)
+		initialSync = poller.InitialSyncDone
 		utils.SafeGo(func() { poller.Run(ctx) })
 		rootLog.Info("🗄️ DB mode active — account configs loaded from database", "poll_interval", pollInterval)
 	} else {
 		fileInterval := resolveFileWatchInterval()
 		fw := managedminer.NewFileWatcher(*configDir, mgr, fileInterval, rootLog)
+		initialSync = fw.InitialSyncDone
 		utils.SafeGo(func() { fw.Run(ctx) })
 		rootLog.Info("📁 File watcher active — hot-reload enabled", "dir", *configDir, "poll_interval", fileInterval)
 	}
@@ -191,8 +195,20 @@ func main() {
 	} else if telemetryCfg != nil {
 		telemetryCfg.Version = version.Number
 		sender := telemetry.NewSender(telemetryCfg, rootLog.Logger)
-		utils.SafeGo(func() { sender.Run(ctx) })
-		rootLog.Info("📡 Anonymous telemetry enabled — sending instance_id, version, os, arch. To disable, set TELEMETRY_AGREE=false")
+		sender.SetRunningAccountsFunc(func() int {
+			return len(mgr.Entries())
+		})
+		if accountStore != nil {
+			sender.SetTotalConfigsFunc(func() int {
+				accounts, err := accountStore.ListAccounts()
+				if err != nil {
+					return 0
+				}
+				return len(accounts)
+			})
+		}
+		utils.SafeGo(func() { sender.Run(ctx, initialSync) })
+		rootLog.Info("📡 Anonymous telemetry enabled — sending instance_id, version, os, arch, running/total account count. To disable, set TELEMETRY_AGREE=false")
 	} else {
 		rootLog.Info("📡 Telemetry disabled",
 			"help", "Set TELEMETRY_AGREE=false explicitly, or omit it to enable default telemetry",

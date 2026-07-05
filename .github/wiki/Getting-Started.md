@@ -79,6 +79,12 @@ curl -X POST http://localhost:8080/api/test-notification
 
 The analytics dashboard is available at `http://localhost:8080`.
 
+## Telemetry
+
+By default the miner sends anonymous usage heartbeats — instance ID, version, OS, architecture, deployment label, running accounts count, and total configs count. No personal data, channel names, or IP addresses are transmitted. Set `TELEMETRY_AGREE=false` in your environment to disable.
+
+The server-side dashboard is open source: [twitch-miner-go-telemetry](https://github.com/Guliveer/twitch-miner-go-telemetry).
+
 ## Automatic updates
 
 Pass `-auto-update` to have the miner update itself on startup:

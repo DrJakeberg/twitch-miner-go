@@ -21,6 +21,10 @@ type FileWatcher struct {
 
 	// watermark: username → last seen mtime Unix seconds
 	watermark map[string]int64
+
+	initialSyncDone chan struct{}
+	// InitialSyncDone is closed after the first sync() completes.
+	InitialSyncDone <-chan struct{}
 }
 
 // fileManager is the subset of Manager that FileWatcher needs.
@@ -32,19 +36,24 @@ type fileManager interface {
 
 // NewFileWatcher creates a FileWatcher that polls dir every interval.
 func NewFileWatcher(dir string, mgr fileManager, interval time.Duration, log *logger.Logger) *FileWatcher {
+	ch := make(chan struct{})
 	return &FileWatcher{
-		dir:       dir,
-		manager:   mgr,
-		interval:  interval,
-		log:       log,
-		watermark: make(map[string]int64),
+		dir:             dir,
+		manager:         mgr,
+		interval:        interval,
+		log:             log,
+		watermark:       make(map[string]int64),
+		initialSyncDone: ch,
+		InitialSyncDone: ch,
 	}
 }
 
-// Run starts the polling loop. It performs an initial sync and then blocks
-// until ctx is cancelled.
+// Run starts the polling loop. It calls sync() immediately, closes the
+// InitialSyncDone channel to signal the first load is complete, then
+// continues polling on the configured interval. Blocks until ctx is cancelled.
 func (w *FileWatcher) Run(ctx context.Context) {
 	w.sync()
+	close(w.initialSyncDone)
 
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
