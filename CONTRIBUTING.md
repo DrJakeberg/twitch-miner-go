@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to **twitch-miner-go**! This document covers the commit conventions, git hooks setup, and automated versioning workflow used by this project.
 
+Please note that this project has a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold its terms. Report unacceptable behavior privately via [GitHub Security Advisory](https://github.com/Guliveer/twitch-miner-go/security/advisories/new).
+
 ## Commit Convention
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/) to drive automated versioning and changelog generation. Every commit/PR message must follow this format:
