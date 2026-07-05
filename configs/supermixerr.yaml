@@ -1,0 +1,24 @@
+category_watcher:
+    categories:
+        - drops_only: false
+          slug: tom-clancys-rainbow-six-siege
+        - slug: special-events
+        - slug: minecraft
+        - slug: rocket-league
+        - slug: r-e-p-o
+    drops_only: true
+    enabled: true
+features:
+    claim_drops_startup: true
+max_watch_streams: 15
+notifications:
+    webhook:
+        method: POST
+priority:
+    - DROPS
+    - STREAK
+    - ORDER
+streamers:
+    - settings:
+        chat: ALWAYS
+      username: guliveer_

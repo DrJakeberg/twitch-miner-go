@@ -87,7 +87,8 @@ func main() {
 	configDir := flag.String("config", "configs", "Path to the configuration directory")
 	port := flag.String("port", "8080", "Port for the health/analytics HTTP server")
 	logLevel := flag.String("log-level", "", "Log level: DEBUG, INFO, WARN, ERROR (overrides LOG_LEVEL env)")
-	logFormat := flag.String("log-format", "", "Log format: text or json (overrides LOG_FORMAT env)")
+	logFormat    := flag.String("log-format", "", "Log format: text or json (overrides LOG_FORMAT env)")
+	logDirFlag   := flag.String("log-dir", "", "Enable file logging; directory for .log files named with startup timestamp (overrides LOG_DIR env)")
 	healthcheckURL := flag.String("healthcheck-url", "", "Probe the given HTTP URL and exit with status 0 only on HTTP 200")
 	showVersion             := flag.Bool("version", false, "Print version and exit")
 	autoUpdate              := flag.Bool("auto-update", false, "Automatically download and apply updates on startup")
@@ -117,8 +118,9 @@ func main() {
 	httpPort := resolvePort(*port)
 	colored := logger.ColorSupported()
 	format := resolveLogFormat(*logFormat)
+	logDir := resolveLogDir(*logDirFlag)
 
-	rootLog, err := logger.Setup(logger.Config{Level: level, Colored: colored, Format: format})
+	rootLog, err := logger.Setup(logger.Config{Level: level, Colored: colored, Format: format, LogDir: logDir})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to setup logger: %v\n", err)
 		os.Exit(1)
@@ -239,6 +241,16 @@ func resolveLogFormat(flag string) string {
 		return strings.ToLower(env)
 	}
 	return "text"
+}
+
+func resolveLogDir(flagVal string) string {
+	if flagVal != "" {
+		return flagVal
+	}
+	if env := os.Getenv("LOG_DIR"); env != "" {
+		return env
+	}
+	return ""
 }
 
 func resolvePort(flag string) string {

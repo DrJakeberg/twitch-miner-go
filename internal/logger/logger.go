@@ -12,9 +12,12 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Guliveer/twitch-miner-go/internal/model"
 )
+
+var startupTime = time.Now()
 
 var eventEmoji = map[string]string{
 	"GAIN_FOR_WATCH":        "💵",
@@ -98,7 +101,15 @@ type Logger struct {
 func Setup(cfg Config) (*Logger, error) {
 	var handlers []slog.Handler
 
-	consoleHandler := newColorHandler(os.Stdout, cfg.Level, cfg.Colored, cfg.AccountName)
+	var consoleHandler slog.Handler
+	if cfg.Format == "json" {
+		consoleHandler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.Level})
+		if cfg.AccountName != "" {
+			consoleHandler = consoleHandler.WithAttrs([]slog.Attr{slog.String("account", cfg.AccountName)})
+		}
+	} else {
+		consoleHandler = newColorHandler(os.Stdout, cfg.Level, cfg.Colored, cfg.AccountName)
+	}
 	handlers = append(handlers, consoleHandler)
 
 	if cfg.LogDir != "" {
@@ -106,9 +117,10 @@ func Setup(cfg Config) (*Logger, error) {
 			return nil, fmt.Errorf("creating log directory %s: %w", cfg.LogDir, err)
 		}
 
-		filename := "miner.log"
+		timestamp := startupTime.Format("2003-12-31_13-10-00")
+		filename := timestamp + ".log"
 		if cfg.AccountName != "" {
-			filename = cfg.AccountName + ".log"
+			filename = timestamp + "_" + cfg.AccountName + ".log"
 		}
 
 		logFile, err := os.OpenFile(
@@ -168,7 +180,7 @@ func (l *Logger) Event(ctx context.Context, event model.Event, msg string, args 
 	if emoji, ok := eventEmoji[string(event)]; ok {
 		msg = emoji + " " + msg
 	}
-	l.Info(msg, append(args, "event", string(event), "event_type", string(event))...)
+	l.Info(msg, append(args, "event", string(event))...)
 
 	if fn, ok := l.notifyFn.Load().(NotifyFunc); ok && fn != nil {
 		// Build clean args string, excluding streamer and category (shown in title)
