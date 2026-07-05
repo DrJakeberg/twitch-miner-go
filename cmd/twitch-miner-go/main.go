@@ -93,6 +93,7 @@ func main() {
 	showVersion             := flag.Bool("version", false, "Print version and exit")
 	autoUpdate              := flag.Bool("auto-update", false, "Automatically download and apply updates on startup")
 	noLifecycleNotify       := flag.Bool("no-lifecycle-notify", false, "Suppress MINER_STARTED / MINER_STOPPED / MINER_CRASHED notifications for this run")
+	logNoTime               := flag.Bool("log-no-time", false, "Omit timestamps in console logs (useful when the platform adds its own, e.g. Fly.io); overrides LOG_NO_TIME env")
 	flag.Parse()
 
 	if *showVersion {
@@ -119,8 +120,9 @@ func main() {
 	colored := logger.ColorSupported()
 	format := resolveLogFormat(*logFormat)
 	logDir := resolveLogDir(*logDirFlag)
+	noTime := resolveLogNoTime(*logNoTime)
 
-	rootLog, err := logger.Setup(logger.Config{Level: level, Colored: colored, Format: format, LogDir: logDir})
+	rootLog, err := logger.Setup(logger.Config{Level: level, Colored: colored, NoTime: noTime, Format: format, LogDir: logDir})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to setup logger: %v\n", err)
 		os.Exit(1)
@@ -241,6 +243,13 @@ func resolveLogFormat(flag string) string {
 		return strings.ToLower(env)
 	}
 	return "text"
+}
+
+func resolveLogNoTime(flagVal bool) bool {
+	if flagVal {
+		return true
+	}
+	return os.Getenv("LOG_NO_TIME") == "true"
 }
 
 func resolveLogDir(flagVal string) string {

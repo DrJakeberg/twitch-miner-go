@@ -74,6 +74,7 @@ type Config struct {
 	Level       slog.Level
 	FileLevel   slog.Level
 	Colored     bool
+	NoTime      bool
 	LogDir      string
 	AccountName string
 	NotifyFn    NotifyFunc
@@ -108,7 +109,7 @@ func Setup(cfg Config) (*Logger, error) {
 			consoleHandler = consoleHandler.WithAttrs([]slog.Attr{slog.String("account", cfg.AccountName)})
 		}
 	} else {
-		consoleHandler = newColorHandler(os.Stdout, cfg.Level, cfg.Colored, cfg.AccountName)
+		consoleHandler = newColorHandler(os.Stdout, cfg.Level, cfg.Colored, cfg.NoTime, cfg.AccountName)
 	}
 	handlers = append(handlers, consoleHandler)
 
@@ -235,15 +236,17 @@ type colorHandler struct {
 	writer      io.Writer
 	level       slog.Level
 	colored     bool
+	noTime      bool
 	accountName string
 	attrs       []slog.Attr
 }
 
-func newColorHandler(w io.Writer, level slog.Level, colored bool, accountName string) *colorHandler {
+func newColorHandler(w io.Writer, level slog.Level, colored bool, noTime bool, accountName string) *colorHandler {
 	return &colorHandler{
 		writer:      w,
 		level:       level,
 		colored:     colored,
+		noTime:      noTime,
 		accountName: accountName,
 	}
 }
@@ -256,7 +259,6 @@ func (h *colorHandler) Handle(_ context.Context, record slog.Record) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	timeStr := record.Time.Format("02/01/06 15:04:05")
 	levelStr := record.Level.String()
 	msg := record.Message
 
@@ -267,13 +269,26 @@ func (h *colorHandler) Handle(_ context.Context, record slog.Record) error {
 
 	if h.colored {
 		levelColor := h.levelColor(record.Level)
-		fmt.Fprintf(h.writer, "%s%s - %s%s%s - %s%s",
-			colorGray, timeStr,
-			levelColor, levelStr, colorReset,
-			prefix, msg,
-		)
+		if h.noTime {
+			fmt.Fprintf(h.writer, "%s%s%s - %s%s",
+				levelColor, levelStr, colorReset,
+				prefix, msg,
+			)
+		} else {
+			timeStr := record.Time.Format("02/01/06 15:04:05")
+			fmt.Fprintf(h.writer, "%s%s - %s%s%s - %s%s",
+				colorGray, timeStr,
+				levelColor, levelStr, colorReset,
+				prefix, msg,
+			)
+		}
 	} else {
-		fmt.Fprintf(h.writer, "%s - %s - %s%s", timeStr, levelStr, prefix, msg)
+		if h.noTime {
+			fmt.Fprintf(h.writer, "%s - %s%s", levelStr, prefix, msg)
+		} else {
+			timeStr := record.Time.Format("02/01/06 15:04:05")
+			fmt.Fprintf(h.writer, "%s - %s - %s%s", timeStr, levelStr, prefix, msg)
+		}
 	}
 
 	for _, a := range h.attrs {
@@ -306,6 +321,7 @@ func (h *colorHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		writer:      h.writer,
 		level:       h.level,
 		colored:     h.colored,
+		noTime:      h.noTime,
 		accountName: h.accountName,
 		attrs:       append(copyAttrs(h.attrs), attrs...),
 	}
@@ -316,6 +332,7 @@ func (h *colorHandler) WithGroup(name string) slog.Handler {
 		writer:      h.writer,
 		level:       h.level,
 		colored:     h.colored,
+		noTime:      h.noTime,
 		accountName: h.accountName,
 		attrs:       copyAttrs(h.attrs),
 	}

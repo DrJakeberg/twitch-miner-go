@@ -130,6 +130,7 @@ _run.bat
 | `-version`               | `false`   | Print version and exit                                          |
 | `-auto-update`           | `false`   | Download and apply the latest release automatically on startup  |
 | `-no-lifecycle-notify`   | `false`   | Suppress `MINER_STARTED`, `MINER_STOPPED`, `MINER_CRASHED` notifications for this run |
+| `-log-no-time`           | `false`   | Omit timestamps in console logs (useful when the platform adds its own, e.g. Fly.io)   |
 
 ## 1.5. Configuration
 
@@ -294,6 +295,7 @@ For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN
 |-----------------------------|-----------------------------------------------------------------------------------------------|------------------|
 | `LOG_LEVEL`                 | Log level (`DEBUG`, `INFO`, `WARN`, `ERROR`)                                                  | `INFO`           |
 | `LOG_FORMAT`                | Output format: `text` (colored logfmt) or `json` (structured, Stdout and files)               | `text`           |
+| `LOG_NO_TIME`               | Set to `true` to omit timestamps in console logs (avoids duplication when the platform adds timestamps, e.g. Fly.io) | `false`          |
 | `LOG_DIR`                   | Enable file logging; directory for `.log` files named with startup timestamp                  | _(disabled)_     |
 | `PORT`                      | HTTP server port for health/analytics                                                         | `8080`           |
 | `DATA_DIR`                  | Persistent data directory (cookies, state)                                                    | `.`              |
