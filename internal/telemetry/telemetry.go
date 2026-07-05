@@ -231,17 +231,33 @@ func newUUID() (string, error) {
 
 // detectDeployment returns a deployment label based on environment hints.
 func detectDeployment() string {
-	if env := os.Getenv(envDeployment); env != "" {
-		return env
-	}
-
-	if os.Getenv("FLY_APP_NAME") != "" {
+	switch {
+	case os.Getenv(envDeployment) != "":
+		return os.Getenv(envDeployment)
+	case os.Getenv("FLY_APP_NAME") != "":
 		return "fly-io"
+	case os.Getenv("DYNO") != "":
+		return "heroku"
+	case os.Getenv("K_SERVICE") != "" || os.Getenv("CLOUD_RUN_JOB") != "":
+		return "cloud-run"
+	case os.Getenv("RAILWAY_ENVIRONMENT") != "":
+		return "railway"
+	case os.Getenv("RENDER") != "":
+		return "render"
+	case os.Getenv("KUBERNETES_SERVICE_HOST") != "":
+		return "kubernetes"
+	case os.Getenv("WEBSITE_SITE_NAME") != "":
+		return "azure"
+	case os.Getenv("ECS_CONTAINER_METADATA_URI_V4") != "":
+		return "aws-ecs"
+	case os.Getenv("KOYEB_APP_NAME") != "":
+		return "koyeb"
+	case os.Getenv("CYCLIC_URL") != "":
+		return "cyclic"
+	default:
+		if _, err := os.Stat("/.dockerenv"); err == nil {
+			return "docker"
+		}
+		return "self-hosted"
 	}
-
-	if _, err := os.Stat("/.dockerenv"); err == nil {
-		return "docker"
-	}
-
-	return "self-hosted"
 }
