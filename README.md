@@ -275,6 +275,10 @@ Use the `configs/` directory for per-account behavior such as watched streamers,
 
 For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN_GULIVEER_` and the auth token variable is `TWITCH_AUTH_TOKEN_GULIVEER_`.
 
+> 📡 **Telemetry notice:** This project collects anonymous usage data by default — instance ID, version, OS, and architecture — to track adoption and prioritize development. No personal data, channel names, IP addresses, or identifying information is sent. **To disable, set `TELEMETRY_AGREE=false` in your environment.**  
+> The instance ID is a random UUID v4 generated on first run and persisted in `DATA_DIR/.instance_id` — the same instance keeps the same ID across restarts. When running in Docker or on Fly.io, ensure `DATA_DIR` is a mounted/persistent volume so the ID survives container rebuilds.  
+> Source code for the telemetry server: [github.com/Guliveer/twitch-miner-go-telemetry](https://github.com/Guliveer/twitch-miner-go-telemetry)
+
 ### 1.6.1. Global
 
 | Variable                    | Description                                                                                   | Default          |
@@ -296,6 +300,10 @@ For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN
 | `DB_DSN`                    | PostgreSQL connection string (required when `DB_ENABLED=true`)                                | _(unset)_        |
 | `DB_POLL_INTERVAL`          | How often the DB Poller syncs when no `NOTIFY` is received (e.g. `30s`, `2m`)                | `30s`            |
 | `FILE_POLL_INTERVAL`        | How often the file watcher checks `configs/` for YAML changes (file mode only)               | `5s`             |
+| `TELEMETRY_AGREE`          | Set to `false` to disable anonymous telemetry heartbeats (enabled by default)                 | `true`           |
+| `TELEMETRY_URL`           | Override the compiled-in telemetry server URL (forks running their own server)                | _(compiled-in)_  |
+| `HEARTBEAT_API_KEY`        | API key for the telemetry server heartbeat endpoint (`X-API-Key` header)                      | _(none)_         |
+| `TELEMETRY_INTERVAL`       | How often to send heartbeats (e.g. `30m`, `1h`, `2h`)                                       | `1h`             |
 
 > **Note:** Twitch client IDs and versions have compiled-in defaults (from `internal/constants`) that are used when the corresponding environment variables are unset. These defaults may become stale as Twitch updates their clients, so it is recommended to set these environment variables explicitly.
 

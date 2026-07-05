@@ -19,6 +19,7 @@ vendor/
 
 # Runtime data
 cookies/**
+.instance_id
 *.json
 !configs/*.yaml
 !configs/*.yaml.example

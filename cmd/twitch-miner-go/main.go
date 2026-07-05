@@ -22,6 +22,7 @@ import (
 	"github.com/Guliveer/twitch-miner-go/internal/runtimecfg"
 	"github.com/Guliveer/twitch-miner-go/internal/server"
 	"github.com/Guliveer/twitch-miner-go/internal/store"
+	"github.com/Guliveer/twitch-miner-go/internal/telemetry"
 	"github.com/Guliveer/twitch-miner-go/internal/updater"
 	"github.com/Guliveer/twitch-miner-go/internal/utils"
 	"github.com/Guliveer/twitch-miner-go/internal/version"
@@ -183,6 +184,20 @@ func main() {
 		}
 	})
 	rootLog.Info("🌐 Health/analytics server started", "addr", ":"+httpPort)
+
+	telemetryCfg, err := telemetry.LoadConfigFromEnv(rootLog.Logger)
+	if err != nil {
+		rootLog.Warn("📡 Telemetry: failed to load config", "error", err)
+	} else if telemetryCfg != nil {
+		telemetryCfg.Version = version.Number
+		sender := telemetry.NewSender(telemetryCfg, rootLog.Logger)
+		utils.SafeGo(func() { sender.Run(ctx) })
+		rootLog.Info("📡 Anonymous telemetry enabled — sending instance_id, version, os, arch. To disable, set TELEMETRY_AGREE=false")
+	} else {
+		rootLog.Info("📡 Telemetry disabled",
+			"help", "Set TELEMETRY_AGREE=false explicitly, or omit it to enable default telemetry",
+		)
+	}
 
 	<-ctx.Done()
 	mgr.StopAll()
