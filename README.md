@@ -1,4 +1,10 @@
-# 1. Twitch Channel Points Miner — Go Edition
+<p align="center">
+  <picture>
+    <img src="docs/social_preview_1.png" alt="twitch-miner-go - Efficient Auto Drops &amp; Points Claim for Twitch" width="100%">
+  </picture>
+</p>
+
+# twitch-miner-go - Efficient Auto Drops & Points Claim for Twitch
 
 [![GitHub Stars](https://img.shields.io/github/stars/Guliveer/twitch-miner-go?style=for-the-badge&logo=github&color=gold)](https://github.com/Guliveer/twitch-miner-go/stargazers)
 [![CI](https://img.shields.io/github/actions/workflow/status/Guliveer/twitch-miner-go/ci.yml?style=for-the-badge&logo=github&label=CI)](https://github.com/Guliveer/twitch-miner-go/actions/workflows/ci.yml)
@@ -14,7 +20,7 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
 
 ## 1.1. Table of Contents
 
-- [1. Twitch Channel Points Miner — Go Edition](#1-twitch-channel-points-miner--go-edition)
+- [twitch-miner-go - Efficient Auto Drops & Points Claim for Twitch](#twitch-miner-go---efficient-auto-drops--points-claim-for-twitch)
     - [1.1. Table of Contents](#11-table-of-contents)
     - [1.2. Features](#12-features)
     - [1.3. Resource Comparison](#13-resource-comparison)
@@ -22,14 +28,14 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
         - [1.4.1. Flags](#141-flags)
     - [1.5. Configuration](#15-configuration)
         - [1.5.1. Quick Start](#151-quick-start)
-        - [Config Editor](#config-editor)
-        - [1.5.2. Database Mode (optional)](#152-database-mode-optional)
+        - [1.5.2. Config Editor](#152-config-editor)
+        - [1.5.3. Database Mode (optional)](#153-database-mode-optional)
     - [1.6. Environment Variables](#16-environment-variables)
         - [1.6.1. Global](#161-global)
         - [1.6.2. Per-Account Authentication](#162-per-account-authentication)
         - [1.6.3. Notification Secrets](#163-notification-secrets)
         - [1.6.4. `.env` File Support](#164-env-file-support)
-            - [How To Obtain Twitch Runtime Identifiers](#how-to-obtain-twitch-runtime-identifiers)
+        - [1.6.4.1. How To Obtain Twitch Runtime Identifiers](#1641-how-to-obtain-twitch-runtime-identifiers)
     - [1.7. Notifications](#17-notifications)
         - [1.7.1. Supported Providers](#171-supported-providers)
         - [1.7.2. Example: Telegram](#172-example-telegram)
@@ -39,41 +45,42 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
     - [1.8. Authentication](#18-authentication)
         - [1.8.1. When to use the env vars](#181-when-to-use-the-env-vars)
     - [1.9. Docker](#19-docker)
-        - [Docker Compose](#docker-compose)
-        - [GitHub Container Registry](#github-container-registry)
+        - [1.9.1. Docker Compose](#191-docker-compose)
+        - [1.9.2. GitHub Container Registry](#192-github-container-registry)
     - [1.10. Linux Service (systemd / OpenRC)](#110-linux-service-systemd--openrc)
-        - [Managing the Service](#managing-the-service)
-        - [Uninstalling](#uninstalling)
-        - [Default File Locations](#default-file-locations)
+        - [1.10.1. Managing the Service](#1101-managing-the-service)
+        - [1.10.2. Uninstalling](#1102-uninstalling)
+        - [1.10.3. Default File Locations](#1103-default-file-locations)
     - [1.11. Windows Service](#111-windows-service)
-        - [Managing the Service](#managing-the-service-1)
-        - [Uninstalling](#uninstalling-1)
+        - [1.11.1. Managing the Service](#1111-managing-the-service)
+        - [1.11.2. Uninstalling](#1112-uninstalling)
     - [1.12. Deploy to Fly.io](#112-deploy-to-flyio)
         - [1.12.1. Setup](#1121-setup)
         - [1.12.2. CI/CD Auto-Deploy](#1122-cicd-auto-deploy)
         - [1.12.3. Manual Deploy](#1123-manual-deploy)
         - [1.12.4. Alternative Deployment](#1124-alternative-deployment)
     - [1.13. Development](#113-development)
-    - [1.14. Auto-Update Checker](#114-auto-update-checker)
+    - [1.14. Auto-Update](#114-auto-update)
+        - [1.14.1. Automatic updates](#1141-automatic-updates)
     - [1.15. License](#115-license)
 
 ## 1.2. Features
 
-- **Multi-account support** — run multiple Twitch accounts from a single binary; configs can be stored as YAML files or in a PostgreSQL database (hot-reloaded without restart)
-- **Channel points mining** — automatic minute-watched events, bonus claims, watch streaks
-- **Predictions** — configurable betting strategies (SMART, HIGH_ODDS, MOST_VOTED, etc.)
-- **Drops** — automatic campaign sync and drop claiming
-- **Raids** — automatic raid joining
-- **Community moments** — automatic moment claiming
-- **Community goals** — automatic goal contributions
-- **Gift sub detection** — notifies when your account receives a gifted subscription
-- **Category watcher** — auto-discover streamers by game category
-- **Team watcher** — auto-discover streamers by Twitch team membership
-- **Followers mode** — automatically watch all followed channels
-- **Notifications** — Telegram, Discord, Webhook, Matrix, Pushover, Gotify
-- **Lifecycle alerts** — start, stop, and crash notifications with version info
-- **Analytics dashboard** — built-in web UI for monitoring; see also [twitch-miner-go-dashboard](https://github.com/Guliveer/twitch-miner-go-dashboard) for a full management UI (DB mode)
-- **Fly.io ready** — deploy with a single command; Docker Compose and systemd service also supported
+- 👥 **Multi-account support** — run multiple Twitch accounts from a single binary; configs can be stored as YAML files or in a PostgreSQL database (hot-reloaded without restart)
+- ⛏️ **Channel points mining** — automatic minute-watched events, bonus claims, watch streaks
+- 🔮 **Predictions** — configurable betting strategies (SMART, HIGH_ODDS, MOST_VOTED, etc.)
+- 📦 **Drops** — automatic campaign sync and drop claiming
+- ⚔️ **Raids** — automatic raid joining
+- 🎉 **Community moments** — automatic moment claiming
+- 🎯 **Community goals** — automatic goal contributions
+- 🎁 **Gift sub detection** — notifies when your account receives a gifted subscription
+- 🏷️ **Category watcher** — auto-discover streamers by game category
+- 🤝 **Team watcher** — auto-discover streamers by Twitch team membership
+- ⭐ **Followers mode** — automatically watch all followed channels
+- 🔔 **Notifications** — Telegram, Discord, Webhook, Matrix, Pushover, Gotify
+- 🚨 **Lifecycle alerts** — start, stop, and crash notifications with version info
+- 📊 **Analytics dashboard** — built-in web UI for monitoring; see also [twitch-miner-go-dashboard](https://github.com/Guliveer/twitch-miner-go-dashboard) for a full management UI (DB mode)
+- 🚀 **Fly.io ready** — deploy with a single command; Docker Compose and systemd service also supported
 
 ## 1.3. Resource Comparison
 
@@ -136,7 +143,7 @@ cp configs/example.yaml.example configs/your_twitch_username.yaml
 
 See [`configs/example.yaml.example`](configs/example.yaml.example) for the full schema. Files with a `.yaml.example` extension are not loaded as configs — only `.yaml` and `.yml` files are loaded.
 
-> **Prefer a GUI?** Run `_edit-config.bat` (Windows) or `./_edit-config.sh` (Linux/macOS) to open a visual config editor in your browser. No additional runtimes required — the editor is a self-contained Go binary. See [Config Editor](#config-editor) below for details.
+> **Prefer a GUI?** Run `_edit-config.bat` (Windows) or `./_edit-config.sh` (Linux/macOS) to open a visual config editor in your browser. No additional runtimes required — the editor is a self-contained Go binary. See [Config Editor](#152-config-editor) below for details.
 
 > **After cloning:** The repository includes the maintainer's own account configs (e.g. `guliveer_.yaml`). These are skipped automatically unless `RUN_OWNER_ACCOUNTS=true` is set — so they will not run on your machine and you do not need to delete or disable them. Just create your own config from the example template.
 
@@ -191,7 +198,7 @@ followers:
   order: "ASC"
 ```
 
-### Config Editor
+### 1.5.2. Config Editor
 
 A self-contained Go binary for creating, editing, and deleting account configs. Supports two modes:
 
@@ -227,9 +234,9 @@ The script builds the binary on first run (requires Go), then launches it. The w
 config-editor --tui --config /path/to/configs
 ```
 
-> **Note:** In file mode the miner hot-reloads YAML changes automatically — no restart needed. See [Database Mode](#152-database-mode-optional) for the PostgreSQL-backed alternative.
+> **Note:** In file mode the miner hot-reloads YAML changes automatically — no restart needed. See [Database Mode](#153-database-mode-optional) for the PostgreSQL-backed alternative.
 
-### 1.5.2. Database Mode (optional)
+### 1.5.3. Database Mode (optional)
 
 By default the miner loads account configs from YAML files. You can optionally store them in a PostgreSQL database instead — useful when managing accounts programmatically via REST API (e.g. from a dashboard) without file system access.
 
@@ -367,7 +374,7 @@ TELEGRAM_CHAT_ID=987654321
 
 > See [`.env.example`](.env.example) for the starter template.
 
-#### How To Obtain Twitch Runtime Identifiers
+#### 1.6.4.1. How To Obtain Twitch Runtime Identifiers
 
 The safest way to obtain these values is from real Twitch client requests that you control. Do not assume older values stay valid forever.
 
@@ -633,7 +640,7 @@ docker run -d \
   twitch-miner-go
 ```
 
-### Docker Compose
+### 1.9.1. Docker Compose
 
 ```bash
 docker compose up -d
@@ -653,7 +660,7 @@ The compose setup mounts:
 - a named volume to `/data` for cookies and persisted session state
 - `.env` for required Twitch client identifiers, dashboard auth, and account secrets
 
-### GitHub Container Registry
+### 1.9.2. GitHub Container Registry
 
 This repository publishes Docker images to GHCR with GitHub Actions.
 
@@ -680,7 +687,7 @@ sudo ./_install-service.sh install
 
 The wizard will prompt for service name, paths, port, user, and optionally enable + start the service.
 
-### Managing the Service
+### 1.10.1. Managing the Service
 
 ```bash
 # systemd
@@ -694,13 +701,13 @@ rc-service twitch-miner-go restart
 tail -f /var/log/twitch-miner-go.log  # follow logs
 ```
 
-### Uninstalling
+### 1.10.2. Uninstalling
 
 ```bash
 sudo ./_install-service.sh uninstall
 ```
 
-### Default File Locations
+### 1.10.3. Default File Locations
 
 | Item           | Path                             |
 |----------------|----------------------------------|
@@ -722,7 +729,7 @@ _install-service.bat install
 
 The wizard will prompt for config directory, port, and log level.
 
-### Managing the Service
+### 1.11.1. Managing the Service
 
 ```bat
 _install-service.bat start       REM starts (rebuilds the binary first)
@@ -731,7 +738,7 @@ _install-service.bat restart     REM restart with a fresh rebuild
 _install-service.bat status
 ```
 
-### Uninstalling
+### 1.11.2. Uninstalling
 
 ```bat
 _install-service.bat uninstall
@@ -806,7 +813,7 @@ curl https://your-app-name.fly.dev/health
 
 ### 1.12.4. Alternative Deployment
 
-For self-hosted deployments, Docker Compose is also supported — see the [Docker Compose](#docker-compose) section above and [DEPLOYMENT.md](DEPLOYMENT.md) for a comprehensive guide covering both Fly.io and Docker workflows.
+For self-hosted deployments, Docker Compose is also supported — see the [Docker Compose](#191-docker-compose) section above and [DEPLOYMENT.md](DEPLOYMENT.md) for a comprehensive guide covering both Fly.io and Docker workflows.
 
 ## 1.13. Development
 
@@ -816,7 +823,7 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/) a
 
 On startup, the miner automatically checks for new releases in the background. If a newer version is available, a notification is printed to the terminal. This check is non-blocking and does not affect startup time.
 
-### Automatic updates
+### 1.14.1. Automatic updates
 
 Pass `-auto-update` to have the miner download and apply the update itself:
 
