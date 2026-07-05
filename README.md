@@ -5,7 +5,6 @@
 [![Latest Release](https://img.shields.io/github/v/release/Guliveer/twitch-miner-go?style=for-the-badge&logo=semanticrelease&label=latest%20version)](https://github.com/Guliveer/twitch-miner-go/releases/latest)
 [![Release Date](https://img.shields.io/github/release-date/Guliveer/twitch-miner-go?style=for-the-badge&logo=semanticrelease&label=latest%20release)](https://github.com/Guliveer/twitch-miner-go/releases/latest)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Guliveer/twitch-miner-go?style=for-the-badge&logo=go)](https://go.dev/)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Guliveer/twitch-miner-go?style=for-the-badge)](https://goreportcard.com/report/github.com/Guliveer/twitch-miner-go)
 [![Created At](https://img.shields.io/github/created-at/Guliveer/twitch-miner-go?style=for-the-badge&logo=github)](https://github.com/Guliveer/twitch-miner-go)
 [![License](https://img.shields.io/github/license/Guliveer/twitch-miner-go?style=for-the-badge)](https://github.com/Guliveer/twitch-miner-go/blob/main/LICENSE.txt)
 
