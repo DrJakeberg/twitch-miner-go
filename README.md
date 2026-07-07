@@ -283,7 +283,7 @@ Use the `configs/` directory for per-account behavior such as watched streamers,
 
 For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN_GULIVEER_` and the auth token variable is `TWITCH_AUTH_TOKEN_GULIVEER_`.
 
-> 📡 **Telemetry notice:** This project collects anonymous usage data by default — instance ID, version, OS, architecture, running account count, and total config count — to track adoption and prioritize development. No personal data, channel names, IP addresses, or identifying information is sent. **To disable, set `TELEMETRY_AGREE=false` in your environment.**  
+> 📡 **Telemetry notice:** This project collects anonymous usage data by default — instance ID, version, OS, architecture, and running account count — to track adoption and prioritize development. No personal data, channel names, IP addresses, or identifying information is sent. **To disable, set `TELEMETRY_AGREE=false` in your environment.**  
 
 > The instance ID is a random UUID v4 generated on first run and persisted in `DATA_DIR/.instance_id` — the same instance keeps the same ID across restarts. When running in Docker or on Fly.io, ensure `DATA_DIR` is a mounted/persistent volume so the ID survives container rebuilds.  
 

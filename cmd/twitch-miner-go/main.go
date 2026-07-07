@@ -200,19 +200,16 @@ func main() {
 		telemetryCfg.Version = version.Number
 		sender := telemetry.NewSender(telemetryCfg, rootLog.Logger)
 		sender.SetRunningAccountsFunc(func() int {
-			return len(mgr.Entries())
-		})
-		if accountStore != nil {
-			sender.SetTotalConfigsFunc(func() int {
-				accounts, err := accountStore.ListAccounts()
-				if err != nil {
-					return 0
+			var count int
+			for _, e := range mgr.Entries() {
+				if e.Miner != nil && e.Miner.IsRunning() {
+					count++
 				}
-				return len(accounts)
-			})
-		}
+			}
+			return count
+		})
 		utils.SafeGo(func() { sender.Run(ctx, initialSync) })
-		rootLog.Info("📡 Anonymous telemetry enabled — sending instance_id, version, os, arch, running/total account count. To disable, set TELEMETRY_AGREE=false")
+		rootLog.Info("📡 Anonymous telemetry enabled — sending instance_id, version, os, arch, running account count. To disable, set TELEMETRY_AGREE=false")
 	} else {
 		rootLog.Info("📡 Telemetry disabled",
 			"help", "Set TELEMETRY_AGREE=false explicitly, or omit it to enable default telemetry",

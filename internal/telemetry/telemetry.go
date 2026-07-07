@@ -6,7 +6,7 @@
 // TELEMETRY_URL env var (useful for forks running their own server).
 //
 // Heartbeat payload is anonymous: instance_id (random UUID), version, os, arch,
-// deployment label, running accounts count, and total configs count.
+// deployment label, and running accounts count.
 // No personal data, no channel names, no IPs.
 package telemetry
 
@@ -58,7 +58,6 @@ type heartbeatPayload struct {
 	Arch            string `json:"arch"`
 	Deployment      string `json:"deployment"`
 	RunningAccounts int    `json:"running_accounts"`
-	TotalConfigs    int    `json:"total_configs"`
 }
 
 // LoadConfigFromEnv reads heartbeat configuration from environment variables.
@@ -107,23 +106,16 @@ func LoadConfigFromEnv(log *slog.Logger) (*Config, error) {
 
 // Sender sends periodic heartbeats to a telemetry server.
 type Sender struct {
-	cfg              *Config
-	client           *http.Client
-	log              *slog.Logger
-	runningAccounts  func() int
-	totalConfigs     func() int
+	cfg             *Config
+	client          *http.Client
+	log             *slog.Logger
+	runningAccounts func() int
 }
 
 // SetRunningAccountsFunc sets a callback that returns the current number
 // of running miner accounts. Called on each heartbeat.
 func (s *Sender) SetRunningAccountsFunc(fn func() int) {
 	s.runningAccounts = fn
-}
-
-// SetTotalConfigsFunc sets a callback that returns the total number of
-// account configurations (including disabled). Called on each heartbeat.
-func (s *Sender) SetTotalConfigsFunc(fn func() int) {
-	s.totalConfigs = fn
 }
 
 // NewSender creates a new heartbeat sender.
@@ -171,10 +163,6 @@ func (s *Sender) sendHeartbeat(ctx context.Context) {
 	if s.runningAccounts != nil {
 		runningAccounts = s.runningAccounts()
 	}
-	totalConfigs := 0
-	if s.totalConfigs != nil {
-		totalConfigs = s.totalConfigs()
-	}
 
 	payload := heartbeatPayload{
 		InstanceID:      s.cfg.InstanceID,
@@ -183,7 +171,6 @@ func (s *Sender) sendHeartbeat(ctx context.Context) {
 		Arch:            runtime.GOARCH,
 		Deployment:      detectDeployment(),
 		RunningAccounts: runningAccounts,
-		TotalConfigs:    totalConfigs,
 	}
 
 	body, err := json.Marshal(payload)
@@ -221,7 +208,6 @@ func (s *Sender) sendHeartbeat(ctx context.Context) {
 		"os", payload.OS,
 		"arch", payload.Arch,
 		"running_accounts", payload.RunningAccounts,
-		"total_configs", payload.TotalConfigs,
 	)
 }
 

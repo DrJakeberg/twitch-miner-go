@@ -91,7 +91,7 @@ internal/
 ├── logger/              Structured logging (slog-based, color support)
 ├── telemetry/           Anonymous heartbeat sender
 │   └── telemetry.go     Periodic HTTP POST with instance ID, version, OS, arch,
-│                        deployment, running accounts, and total configs count;
+│                        deployment, and running accounts count;
 │                        env-based config (TELEMETRY_AGREE, TELEMETRY_URL, etc.)
 ├── updater/             GitHub release version check (non-blocking, on startup)
 ├── version/             Version string embedding (from VERSION file + git commit)
@@ -158,12 +158,12 @@ main.go
        └─ Sender.Start() → background goroutine
             └─ Every interval (TELEMETRY_INTERVAL, default 10 min):
                  ├─ Collect: instance_id, version, os, arch, deployment,
-                 │           running_accounts, total_configs
+                 │           running_accounts
                  ├─ POST to TELEMETRY_URL/api/heartbeat with X-API-Key header
                  └─ Log debug line with payload fields
 ```
 
-**Collected data is anonymous** — instance ID (random UUID), version, OS, architecture, deployment label, running accounts count, and total config count. No personal data, channel names, or IP addresses are sent. See the [telemetry dashboard](https://github.com/Guliveer/twitch-miner-go-telemetry) for the server-side collector.
+**Collected data is anonymous** — instance ID (random UUID), version, OS, architecture, deployment label, and running accounts count. No personal data, channel names, or IP addresses are sent. See the [telemetry dashboard](https://github.com/Guliveer/twitch-miner-go-telemetry) for the server-side collector.
 
 **Configuration** — `TELEMETRY_AGREE=false` disables; `TELEMETRY_URL` overrides the server (for forks); `TELEMETRY_INTERVAL` controls frequency; `HEARTBEAT_API_KEY` authenticates with the server.
 
