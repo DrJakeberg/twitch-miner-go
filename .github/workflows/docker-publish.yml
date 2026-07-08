@@ -1,6 +1,16 @@
 name: Docker Publish
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to build and tag (e.g. 1.23.1)"
+        required: true
+        type: string
+      dry-run:
+        description: "Build and scan only, skip push"
+        type: boolean
+        default: false
   push:
     tags:
       - "v*.*.*"
@@ -40,8 +50,8 @@ concurrency:
 
 jobs:
   publish:
-    # Run on version tags or manual trigger
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    # Run on version tags, workflow_call from CI, or manual trigger
+    if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -60,6 +70,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Normalize inputs
+        id: norm
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry_run=${{ inputs.dry-run }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine build version
+        id: build_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_call" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(cat VERSION)"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Prepare image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -69,18 +100,8 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
             type=ref,event=tag
-            type=semver,pattern={{version}},value=${{ github.ref_name }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ github.ref_name }}
-
-      - name: Determine build version
-        id: build_version
-        run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="$(cat VERSION)"
-          fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            type=semver,pattern={{version}},value=${{ steps.build_version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.build_version.outputs.version }}
 
       - name: Build and push Docker image
         id: build
@@ -88,8 +109,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          # push: never push when dry-run; always push on tag events
-          push: ${{ github.event_name != 'workflow_dispatch' || inputs.dry-run != 'true' }}
+          # push: always push on tag events; respect dry-run for manual/call triggers
+          push: ${{ steps.norm.outputs.dry_run != 'true' }}
           platforms: linux/amd64,linux/arm64
           provenance: true
           sbom: true
@@ -108,7 +129,7 @@ jobs:
         run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Run Trivy vulnerability scan
-        if: github.event_name != 'workflow_dispatch' || inputs.dry-run != 'true'
+        if: steps.norm.outputs.dry_run != 'true'
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ghcr.io/${{ github.repository }}:sha-${{ steps.sha.outputs.short }}
