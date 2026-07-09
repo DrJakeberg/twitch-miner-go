@@ -11,21 +11,6 @@ Rules:
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 
-# Comments in Code
-
-I only write comments before exported symbols (functions, types, variables, constants) - where language convention requires it (e.g., doc-comments in Go, JSDoc in TypeScript). Never inside function bodies, blocks, or lines of code.
-
-A comment explaining *what* a piece of code does is a signal that the code is unreadable. The correct answer is refactoring - better names, smaller functions, clearer structure - not a comment masking the problem.
-
-# Git
-
-- Never add `Co-Authored-By` lines to commit messages.
-- Never sign or mention yourself anywhere in code, docs, comments, descriptions, or anywhere else (e.g., 🤖 Generated with [Claude Code](https://claude.com/claude-code)) unless explicitly stated so.
-
-# After making code changes
-
-After any non-trivial code change, complete two additional steps before marking the task as complete:
-
 ## 1. Documentation
 
 - **Always check the README.md** before marking the task as complete - if the change affects how the project is run, configured, or used, the README must be updated in the same commit as the code.

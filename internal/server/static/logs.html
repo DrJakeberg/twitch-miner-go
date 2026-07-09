@@ -5,169 +5,22 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Event Logs — Twitch Miner</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="/static/style.css">
-        <style>
-            /* Header layout */
-            .header-left {
-                display: flex;
-                align-items: center;
-                gap: 1rem;
-            }
-
-            .back-link {
-                color: #bf94ff;
-                text-decoration: none;
-                font-size: 0.9rem;
-                padding: 0.4rem 0.8rem;
-                border: 1px solid #9147ff;
-                border-radius: 4px;
-                transition: background 0.2s, color 0.2s;
-                white-space: nowrap;
-            }
-
-            .back-link:hover {
-                background: #9147ff;
-                color: #fff;
-            }
-
-            /* Category summary grid */
-            #category-summary {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-                gap: 1rem;
-                max-width: 1200px;
-                margin: 1.5rem auto;
-                padding: 0 1rem;
-            }
-
-            .category-card {
-                background: #18181b;
-                border-radius: 8px;
-                padding: 1rem;
-                border-left: 4px solid #53535f;
-                transition: border-color 0.2s;
-            }
-
-            .category-header {
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-                margin-bottom: 0.5rem;
-            }
-
-            .category-emoji {
-                font-size: 1.2rem;
-            }
-
-            .category-label {
-                font-weight: 600;
-                font-size: 0.95rem;
-                color: #efeff1;
-            }
-
-            .category-stats {
-                display: flex;
-                flex-direction: column;
-                gap: 0.2rem;
-            }
-
-            .category-count {
-                font-size: 0.8rem;
-                color: #adadb8;
-            }
-
-            .category-points {
-                font-size: 0.9rem;
-                color: #ffca28;
-                font-weight: 600;
-            }
-
-            /* Events table */
-            #events-table {
-                width: 100%;
-                border-collapse: collapse;
-                background: #18181b;
-                border-radius: 8px;
-                overflow: hidden;
-            }
-
-            #events-table th,
-            #events-table td {
-                padding: 0.6rem 1rem;
-                text-align: left;
-            }
-
-            #events-table th {
-                background: #26262c;
-                color: #bf94ff;
-                font-size: 0.85rem;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                cursor: pointer;
-                user-select: none;
-                position: relative;
-                transition: background 0.2s;
-            }
-
-            #events-table th:hover {
-                background: #2f2f38;
-            }
-
-            #events-table th::after {
-                content: "";
-                display: inline-block;
-                margin-left: 0.4rem;
-                opacity: 0.3;
-            }
-
-            #events-table th.sort-asc::after {
-                content: "▲";
-                opacity: 1;
-            }
-
-            #events-table th.sort-desc::after {
-                content: "▼";
-                opacity: 1;
-            }
-
-            #events-table td {
-                border-top: 1px solid #26262c;
-                font-size: 0.9rem;
-            }
-
-            #events-table tr:hover td {
-                background: #1f1f23;
-            }
-
-            .event-emoji {
-                margin-right: 0.4rem;
-                font-size: 1rem;
-            }
-
-            td.points {
-                color: #ffca28;
-                font-weight: 600;
-            }
-
-            /* Responsive */
-            @media (max-width: 640px) {
-                #category-summary {
-                    grid-template-columns: repeat(2, 1fr);
-                }
-
-                .header-left {
-                    flex-wrap: wrap;
-                }
-            }
-        </style>
     </head>
 
     <body>
         <header>
             <div class="header-left">
-                <a href="/" class="back-link">← Dashboard</a>
-                <h1>📋 Event Logs</h1>
+                <a href="/" class="brand">Twitch Miner</a>
+                <nav class="topbar-nav">
+                    <a href="/" class="nav-link">Dashboard</a>
+                    <a href="/logs" class="nav-link active">Event Logs</a>
+                </nav>
             </div>
+            <div class="header-right"></div>
         </header>
 
         <section id="filter-bar">
@@ -185,12 +38,12 @@
                 <label for="filter-category">Category</label>
                 <select id="filter-category">
                     <option value="">All Categories</option>
-                    <option value="drops">🎯 Drops</option>
-                    <option value="points">💰 Points</option>
-                    <option value="bets">🎰 Bets</option>
-                    <option value="raids">⚔️ Raids</option>
-                    <option value="streams">🟢 Streams</option>
-                    <option value="other">🎉 Other</option>
+                    <option value="drops">Drops</option>
+                    <option value="points">Points</option>
+                    <option value="bets">Bets</option>
+                    <option value="raids">Raids</option>
+                    <option value="streams">Streams</option>
+                    <option value="other">Other</option>
                 </select>
             </div>
             <div class="filter-group">
@@ -228,6 +81,7 @@
 
         <footer>
             <p>Auto-refreshes every 30 seconds</p>
+            <a href="https://github.com/Guliveer/twitch-miner-go" target="_blank" rel="noopener noreferrer">GitHub</a>
         </footer>
 
         <script src="/static/logs.js"></script>
