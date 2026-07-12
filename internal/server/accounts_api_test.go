@@ -55,7 +55,7 @@ func (f *fakeStore) Changes() <-chan struct{}         { return f.changes }
 func (f *fakeStore) Close() error                    { return nil }
 
 // newTestAccountsServer returns a server with the given store wired in and a
-// registered ServeMux (mirrors how analytics.go wires up routes).
+// registered ServeMux (mirrors how server.go wires up routes).
 func newTestAccountsServer(t *testing.T, st store.Store) *AnalyticsServer {
 	t.Helper()
 	s := NewAnalyticsServer(":0", newTestLogger(t), nil, "")

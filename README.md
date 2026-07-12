@@ -273,6 +273,25 @@ go run ./cmd/db-seed --config /path/to/configs
 
 All endpoints return `501 Not Implemented` when `DB_ENABLED=false`. Auth follows the same HTTP Basic Auth as the dashboard (`DASHBOARD_USER` / `DASHBOARD_PASSWORD_SHA256`).
 
+**Config Generation API** (always available):
+
+| Method   | Endpoint                    | Description                                           |
+|----------|-----------------------------|-------------------------------------------------------|
+| `GET`    | `/api/config/schema`        | Returns validation schema and default values           |
+| `POST`   | `/api/config/validate`      | Validates config JSON without saving (body: AccountConfig JSON) |
+| `POST`   | `/api/config/generate`      | Generates YAML from config JSON (body: AccountConfig JSON) |
+
+These endpoints are used by [twitch-miner-go-dashboard](https://github.com/Guliveer/twitch-miner-go-dashboard) to generate config files server-side, ensuring format consistency with the Go parser. The `generate` endpoint returns:
+
+```json
+{
+  "username": "alice",
+  "filename": "alice.yaml",
+  "yaml": "enabled: true\nfeatures:\n  claim_drops_startup: false\n...",
+  "generated_at": "2025-01-15T10:30:00Z"
+}
+```
+
 > **[twitch-miner-go-dashboard](https://github.com/Guliveer/twitch-miner-go-dashboard)** — a dedicated management UI for DB mode: add, edit, and disable accounts without touching YAML files or the API directly.
 
 ## 1.6. Environment Variables

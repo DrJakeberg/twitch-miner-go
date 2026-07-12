@@ -89,6 +89,11 @@ func NewAnalyticsServer(addr string, log *logger.Logger, auth *DashboardAuth, ap
 	mux.HandleFunc("GET /api/accounts/{username}", s.handleGetAccount)
 	mux.HandleFunc("PUT /api/accounts/{username}", s.handleUpdateAccount)
 	mux.HandleFunc("DELETE /api/accounts/{username}", s.handleDeleteAccount)
+
+	mux.HandleFunc("GET /api/config/schema", s.handleConfigSchema)
+	mux.HandleFunc("POST /api/config/validate", s.handleConfigValidate)
+	mux.HandleFunc("POST /api/config/generate", s.handleConfigGenerate)
+
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
 
 	mux.HandleFunc("GET /debug/pprof/", pprof.Index)
