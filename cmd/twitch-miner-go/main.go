@@ -280,6 +280,9 @@ func setupAnalyticsServer(addr string, rootLog *logger.Logger, mgr *managedminer
 	srv.SetStreamerFunc(func() []*model.Streamer {
 		var all []*model.Streamer
 		for _, e := range mgr.Entries() {
+			if e.Cfg != nil && !e.Cfg.Features.EnableAnalytics {
+				continue
+			}
 			all = append(all, e.Miner.Streamers()...)
 		}
 		return all
@@ -293,6 +296,9 @@ func setupAnalyticsServer(addr string, rootLog *logger.Logger, mgr *managedminer
 		entries := mgr.Entries()
 		snapshots := make([]miner.DebugSnapshot, 0, len(entries))
 		for _, e := range entries {
+			if e.Cfg != nil && !e.Cfg.Features.EnableAnalytics {
+				continue
+			}
 			snapshots = append(snapshots, e.Miner.DebugSnapshot())
 		}
 		return map[string]any{
