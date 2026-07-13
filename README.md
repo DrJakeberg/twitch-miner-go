@@ -36,6 +36,7 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
         - [1.6.3. Notification Secrets](#163-notification-secrets)
         - [1.6.4. `.env` File Support](#164-env-file-support)
         - [1.6.4.1. How To Obtain Twitch Runtime Identifiers](#1641-how-to-obtain-twitch-runtime-identifiers)
+        - [1.6.5. Cookie Encryption (optional)](#165-cookie-encryption-optional)
     - [1.7. Notifications](#17-notifications)
         - [1.7.1. Supported Providers](#171-supported-providers)
         - [1.7.2. Example: Telegram](#172-example-telegram)
@@ -335,6 +336,7 @@ For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN
 | `TELEMETRY_URL`             | Override the compiled-in telemetry server URL (forks running their own server)                | _(compiled-in)_  |
 | `HEARTBEAT_API_KEY`         | API key for the telemetry server heartbeat endpoint (`X-API-Key` header)                      | _(none)_         |
 | `TELEMETRY_INTERVAL`        | How often to send heartbeats (e.g. `30m`, `1h`, `2h`)                                         | `10m`            |
+| `COOKIE_ENCRYPTION_KEY`     | Base64-encoded 32-byte AES-256 key for encrypting cookie values at rest (optional)             | _(disabled)_     |
 
 > **Note:** Twitch client IDs and versions have compiled-in defaults (from `internal/constants`) that are used when the corresponding environment variables are unset. These defaults may become stale as Twitch updates their clients, so it is recommended to set these environment variables explicitly.
 
@@ -426,6 +428,27 @@ For this project today, the most important runtime values are:
 - `TWITCH_CLIENT_VERSION`
 
 The mobile and platform-specific IDs are kept for future compatibility, but the current runtime path depends primarily on the TV and browser values.
+
+### 1.6.5. Cookie Encryption (optional)
+
+Cookie files store authentication tokens in plaintext by default. You can optionally encrypt cookie values at rest using AES-256-GCM.
+
+**Setup:**
+
+```bash
+# Generate an encryption key
+./scripts/gen-cookie-key.sh
+
+# Add the key to your .env file
+echo 'COOKIE_ENCRYPTION_KEY=<generated_key>' >> .env
+```
+
+**Behavior:**
+
+- **Without `COOKIE_ENCRYPTION_KEY`** — cookies are stored and loaded as plaintext (default, unchanged behavior).
+- **With `COOKIE_ENCRYPTION_KEY`** — cookie values are encrypted when saved and transparently decrypted when loaded. Existing plaintext cookie files are automatically migrated to encrypted on the first save after enabling encryption.
+
+> **Note:** The encryption key is a Base64-encoded 32-byte AES-256 key. Generate it with `./scripts/gen-cookie-key.sh` or `openssl rand -base64 32`. Keep this key safe — losing it means losing access to stored cookies (you will need to re-authenticate).
 
 ## 1.7. Notifications
 

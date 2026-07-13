@@ -1,3 +1,7 @@
+> This file defines mandatory rules for AI coding agents working in this repository.
+
+---
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
@@ -8,56 +12,240 @@ Rules:
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 
-# Comments in Code
+---
 
-I only write comments before exported symbols (functions, types, variables, constants) - where language convention requires it (e.g., doc-comments in Go, JSDoc in TypeScript). Never inside function bodies, blocks, or lines of code.
+# General principles
 
-A comment explaining *what* a piece of code does is a signal that the code is unreadable. The correct answer is refactoring - better names, smaller functions, clearer structure - not a comment masking the problem.
+* Correctness is more important than speed.
+* Prefer the smallest change that completely solves the requested problem.
+* Do not introduce unrelated refactoring.
+* Do not rewrite working code unless it significantly improves correctness, maintainability or readability.
+* Match the existing coding style of the repository instead of enforcing your own preferences.
+* Prefer consistency over perfection.
+* Do not introduce new abstractions, patterns or dependencies unless they solve a demonstrated problem.
+* Never assume APIs, files, types or project structure exist. Search the repository first.
+
+---
+
+# Before writing code
+
+Before modifying anything:
+
+1. Understand the problem.
+2. Identify the root cause.
+3. Search for existing implementations.
+4. Identify every affected file.
+5. Reuse existing solutions whenever possible.
+6. Explain your implementation plan before making non-trivial changes.
+
+If requirements are ambiguous, ask instead of guessing.
+
+If multiple reasonable implementations exist, briefly explain the tradeoffs and choose the simplest one unless instructed otherwise.
+
+---
+
+# Code quality
+
+Write code that is easy to maintain.
+
+Prefer:
+
+* readability over cleverness
+* explicitness over magic
+* simple control flow
+* deterministic behavior
+* type safety
+* small focused functions
+* descriptive naming
+* early returns instead of deep nesting
+
+Avoid:
+
+* duplicate logic
+* unnecessary abstractions
+* speculative optimizations
+* dead code
+* commented-out code
+
+Do not fix unrelated issues while implementing the requested task.
+
+If unrelated problems are discovered, mention them separately instead of modifying them.
+
+---
+
+# Comments
+
+Comments exist to explain *why*, never *what*.
+
+Only write documentation comments for exported/public symbols when required by the language convention (Go doc comments, JSDoc, XML documentation, etc.).
+
+Do not write inline comments that merely explain code.
+
+Inline comments are allowed only when documenting:
+
+* protocol requirements
+* RFC requirements
+* platform-specific behavior
+* compiler/toolchain quirks
+* non-obvious business rules
+* intentional deviations from otherwise obvious implementations
+
+If code requires explanatory comments, prefer refactoring first.
+
+All code comments must be written in English.
+
+---
+
+# Error handling
+
+Fail loudly.
+
+Never silently ignore errors.
+
+Never suppress exceptions unless explicitly required.
+
+Always preserve useful error information.
+
+Return actionable error messages whenever appropriate.
+
+Validate all external input.
+
+Treat every external source as untrusted.
+
+---
+
+# Dependencies
+
+Prefer existing project dependencies.
+
+Do not introduce new libraries unless they provide clear value that cannot reasonably be achieved with existing dependencies.
+
+If a new dependency is added:
+
+* explain why
+* update lockfiles
+* verify compatibility with the project's runtime
+
+---
+
+# Tests
+
+If existing tests cover the modified functionality:
+
+* update them when necessary
+* extend them when appropriate
+
+Do not ignore failing tests.
+
+If no automated tests exist, mention that the change could not be verified automatically.
+
+---
+
+# Documentation
+
+For every non-trivial change:
+
+Review existing documentation.
+
+This includes, when applicable:
+
+* README.md
+* docs/
+* CHANGELOG
+* API documentation
+* OpenAPI / Swagger
+* examples/
+* public documentation
+* docstrings
+
+If behavior, configuration or usage changes, update the relevant documentation within the same change.
+
+If examples become outdated, update them.
+
+If documentation is missing, do not create new documentation unless requested. Instead, mention that documentation should be added.
+
+All documentation must be written in English.
+
+---
+
+# CI/CD verification
+
+Before considering the task complete:
+
+* inspect the project's CI configuration
+* identify all relevant quality checks
+* execute every check that can be run locally
+* report the actual results
+
+This includes, when applicable:
+
+* formatting
+* linting
+* type checking
+* unit tests
+* integration tests
+* end-to-end tests
+* build verification
+* security checks
+* coverage thresholds
+
+Also verify:
+
+* runtime versions
+* lockfiles
+* workflow triggers
+* required environment variables
+* required secrets
+
+If something cannot be verified locally, explicitly explain why instead of assuming success.
+
+---
 
 # Git
 
-- Never add `Co-Authored-By` lines to commit messages.
-- Never sign or mention yourself anywhere in code, docs, comments, descriptions, or anywhere else (e.g., 🤖 Generated with [Claude Code](https://claude.com/claude-code)) unless explicitly stated so.
+Never:
 
-# After making code changes
+* add AI signatures
+* add "Generated by..."
+* add "Co-Authored-By"
+* mention AI anywhere in commits, documentation or source code
 
-After any non-trivial code change, complete two additional steps before marking the task as complete:
+Commit messages must:
 
-## 1. Documentation
+* be concise
+* describe the logical change
+* follow the repository's existing convention
+* contain only one logical change per commit
 
-- **Always check the README.md** before marking the task as complete - if the change affects how the project is run, configured, or used, the README must be updated in the same commit as the code.
-- Also search in: `docs/`, `CHANGELOG`, API comments, OpenAPI/Swagger, docstrings, file headers, `examples/`.
-- If documentation exists describing the functionality being changed, **update it**. Outdated documentation is worse than none at all.
-- If documentation is missing, don't create new documentation yourself, but report to the user that it's worth adding.
+When using GitHub CLI or similar tools with multiline content, always write the content to a temporary file and use:
 
-## 2. Compatibility with CI/CD pipelines
+--body-file
 
-Before considering your work complete, verify that your changes won't break any automatic checks:
+instead of inline arguments.
 
-- **Locate pipelines** - check `.github/workflows/`, `.gitlab-ci.yml`, `azure-pipelines.yml`, `.circleci/`, `Jenkinsfile`, `bitbucket-pipelines.yml`, pre-commit hooks (`.pre-commit-config.yaml`, `lefthook.yml`, `husky`), plus lint and formatter configurations (`.eslintrc`, `.prettierrc`, `ruff.toml`, `.editorconfig`, `tsconfig.json`).
+---
 
-- **Analyze what's being run** - lint, typecheck, tests (unit/integration/e2e), build, security scan, coverage threshold, format check, commit message validation (conventional commits), dependency audit.
-- **Verify locally** - If possible, run the same commands locally (`npm run lint`, `pytest`, `cargo clippy`, `dotnet test`, etc.) and confirm with the result of the tool call, not just the assumption.
-- **Check the change conditions in the workflows themselves** - if you're changing paths/filenames, make sure that `paths:` / `paths-ignore:` in triggers still work as intended; the same applies to matrixes (Node/Python/OS versions). - **Dependencies and Versions** - If you're adding/updating packages, check that the lockfile (`package-lock.json`, `poetry.lock`, `Cargo.lock`, `packages.lock.json`) is consistent and that the runtime version in the CI (`node-version`, `python-version`, `dotnet-version`) supports the new syntax/API.
+# Completion checklist
 
-- **Secrets and Environment Variables** - If the code needs a new variable, report it to the user so they can add it to the CI before the merge.
+Before declaring the task complete, verify:
 
-If you can't run the check locally (e.g., no tool, no access to resources), **state it explicitly** instead of tacitly assuming it will pass - show the calculations, not just the conclusions.
+* the requested functionality works
+* affected tests pass (when possible)
+* formatting passes
+* linting passes
+* type checking passes
+* build passes (when applicable)
+* documentation is updated
+* examples are updated (if needed)
+* exported APIs remain consistent
+* no unrelated files were modified
+* no TODO/FIXME comments were introduced
+* no dead code remains
 
-# Character definition
+If any verification could not be performed, explicitly state why.
 
-You are not my assistant. You are my advisor who happens to be smarter than me. Follow these rules in every reply:
+Never claim something has been tested unless you actually ran the corresponding command.
 
-1. Never start with an agreement. Your first sentence must challenge my assumption, point out what I'm missing, or ask a question that exposes a gap in my thinking.
+Never claim something works unless you have evidence.
 
-2. Rate your confidence. Before any claim, tag it [Certain] (or equivalent in Polish) if you have hard evidence, [Likely] (or equivalent in Polish) if it's a strong inference, [Guessing] (or equivalent in Polish)if you are filling gaps. If most of your reply is guessing, say so first.
-
-3. Kill these phrases for good: "Great question", "You're absolutely right", "That makes a lot of sense", "Absolutely", "Definitely". If you catch yourself typing one, delete and rewrite.
-
-4. Disagree with structure. When I'm wrong, say: "I disagree because [reason]. Here's what I'd do instead [alternative]. The risk in your approach is [specific downside]."
-
-5. Give me the uncomfortable answer first. If there's a truth I probably don't want to hear, lead with it. First line, not buried in paragraph three.
-
-6. No warm up paragraphs. Skip "There are several ways to look at this". Start with the most useful thing you can say.
-
-7. If I push back, don't fold. Hold your position unless I give you genuinely new information. "But I really think" is not new information.
+When uncertain, say so.

@@ -254,7 +254,11 @@ fly secrets set TWITCH_CLIENT_VERSION=your_client_version
 # 8. (Optional) Set auth token for headless login
 fly secrets set TWITCH_AUTH_TOKEN_YOUR_USERNAME=your_oauth_token
 
-# 9. Deploy
+# 9. (Optional) Enable cookie encryption
+# Generate a key first: ./scripts/gen-cookie-key.sh
+# fly secrets set COOKIE_ENCRYPTION_KEY=<generated_key>
+
+# 10. Deploy
 fly deploy
 ```
 

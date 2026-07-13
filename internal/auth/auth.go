@@ -15,6 +15,7 @@ import (
 
 	"github.com/Guliveer/twitch-miner-go/internal/config"
 	"github.com/Guliveer/twitch-miner-go/internal/constants"
+	"github.com/Guliveer/twitch-miner-go/internal/encryption"
 	"github.com/Guliveer/twitch-miner-go/internal/logger"
 	"github.com/Guliveer/twitch-miner-go/internal/runtimecfg"
 )
@@ -67,11 +68,25 @@ func NewAuthenticator(cfg *config.AccountConfig, log *logger.Logger, runtime *ru
 		log.Warn("Failed to create cookies directory", "dir", cookiesDir, "error", err)
 	}
 
+	var jar *CookieJar
+	if envKey := os.Getenv("COOKIE_ENCRYPTION_KEY"); envKey != "" {
+		key, err := encryption.ParseKey(envKey)
+		if err != nil {
+			log.Error("Invalid COOKIE_ENCRYPTION_KEY", "error", err)
+		} else {
+			jar = NewCookieJarWithEncryption(key)
+			log.Info("Cookie encryption enabled")
+		}
+	}
+	if jar == nil {
+		jar = NewCookieJar()
+	}
+
 	return &Authenticator{
 		username:      cfg.Username,
 		cfg:           cfg.Auth,
 		cookieFile:    cookieFile,
-		cookieJar:     NewCookieJar(),
+		cookieJar:     jar,
 		deviceID:      generateDeviceID(),
 		clientSession: GenerateHex(16),
 		log:           log,
@@ -114,6 +129,7 @@ func (a *Authenticator) Login(ctx context.Context) error {
 				if err := a.validateToken(ctx); err == nil {
 					a.log.Info("Successfully authenticated from cookies",
 						"username", a.username, "user_id", a.userID)
+					a.maybeEncryptCookieFile()
 					return nil
 				}
 				a.log.Warn("Cached token is invalid, will try refresh")
@@ -385,4 +401,18 @@ func GenerateHex(numBytes int) string {
 	randomBytes := make([]byte, numBytes)
 	rand.Read(randomBytes)
 	return fmt.Sprintf("%x", randomBytes)
+}
+
+// maybeEncryptCookieFile re-saves the cookie file encrypted when the jar
+// has a key configured. Migrates plaintext files on first load after
+// enabling COOKIE_ENCRYPTION_KEY.
+func (a *Authenticator) maybeEncryptCookieFile() {
+	if !a.cookieJar.HasEncryption() {
+		return
+	}
+	if err := a.cookieJar.Save(a.cookieFile); err != nil {
+		a.log.Warn("Failed to encrypt cookie file", "file", a.cookieFile, "error", err)
+	} else {
+		a.log.Info("Cookie file encrypted", "file", a.cookieFile)
+	}
 }
