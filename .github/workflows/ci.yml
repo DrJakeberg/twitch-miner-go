@@ -37,6 +37,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate commit message
+        id: validate
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
@@ -68,6 +69,20 @@ jobs:
 
           echo "✅ $LABEL follows Conventional Commits format."
 
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.validate.outcome }}" = "success" ]; then
+            echo "## Commit Lint" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Commit message follows Conventional Commits format" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Commit Lint" >> "$GITHUB_STEP_SUMMARY"
+            echo "❌ Commit message does not follow Conventional Commits format" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Format: \`<type>[optional scope][!]: <description>\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
 
   build:
     runs-on: ubuntu-latest
@@ -85,21 +100,57 @@ jobs:
         run: go mod download
 
       - name: Build
+        id: build
         run: |
           VERSION=$(cat VERSION)
           GIT_COMMIT=$(git rev-parse --short HEAD)
           go build -v -ldflags "-X github.com/Guliveer/twitch-miner-go/internal/version.Number=${VERSION} -X github.com/Guliveer/twitch-miner-go/internal/version.GitCommit=${GIT_COMMIT}" ./...
 
       - name: Test
+        id: test
         run: go test -v ./...
 
       - name: Vet
+        id: vet
         run: go vet ./...
 
       - name: Lint
+        id: lint
         uses: golangci/golangci-lint-action@v7
         with:
           version: latest
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Build & Test" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            echo "- ✅ **Build**: Compiled successfully" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ **Build**: Failed" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${{ steps.test.outcome }}" = "success" ]; then
+            echo "- ✅ **Test**: All tests passed" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.test.outcome }}" = "skipped" ]; then
+            echo "- ⏭️ **Test**: Skipped" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ **Test**: Some tests failed" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${{ steps.vet.outcome }}" = "success" ]; then
+            echo "- ✅ **Vet**: No issues found" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ **Vet**: Issues found" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${{ steps.lint.outcome }}" = "success" ]; then
+            echo "- ✅ **Lint**: No issues found" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ **Lint**: Issues found" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   version:
     needs: [build]
@@ -280,12 +331,38 @@ jobs:
           done
 
       - name: Create GitHub Release
+        id: release
         if: steps.bump.outputs.bump != 'skip'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ steps.version.outputs.new_version }}"
           generate_release_notes: true
           files: dist/*
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Version" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          BUMP="${{ steps.bump.outputs.bump }}"
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+
+          if [ "$BUMP" = "skip" ]; then
+            echo "⏭️ **No version bump needed** — commit messages don't trigger a release" >> "$GITHUB_STEP_SUMMARY"
+          else
+            if [ -n "$NEW_VERSION" ]; then
+              echo "- 🏷️ **Bumped**: \`v${NEW_VERSION}\` (${BUMP} bump)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+
+            if [ "${{ steps.release.outcome }}" = "success" ]; then
+              echo "- ✅ **GitHub Release**: Created" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "${{ steps.release.outcome }}" = "skipped" ]; then
+              echo "- ⏭️ **GitHub Release**: Skipped" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ❌ **GitHub Release**: Failed" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
 
   docker-publish:
     needs: [version]
