@@ -128,8 +128,9 @@ func NewSender(cfg *Config, log *slog.Logger) *Sender {
 }
 
 // Run starts the heartbeat loop. It waits for ready (if non-nil) to be
-// closed before sending the first heartbeat, then repeats at the configured
-// interval. Blocks until ctx is cancelled.
+// closed, then waits until at least one account is running before sending
+// the first heartbeat. Repeats at the configured interval. Blocks until
+// ctx is cancelled.
 func (s *Sender) Run(ctx context.Context, ready <-chan struct{}) {
 	if s.cfg == nil {
 		return
@@ -143,6 +144,8 @@ func (s *Sender) Run(ctx context.Context, ready <-chan struct{}) {
 		}
 	}
 
+	s.waitForFirstRunningAccount(ctx, 5*time.Minute)
+
 	s.sendHeartbeat(ctx)
 
 	ticker := time.NewTicker(s.cfg.Interval)
@@ -154,6 +157,30 @@ func (s *Sender) Run(ctx context.Context, ready <-chan struct{}) {
 			s.sendHeartbeat(ctx)
 		case <-ctx.Done():
 			return
+		}
+	}
+}
+
+func (s *Sender) waitForFirstRunningAccount(ctx context.Context, timeout time.Duration) {
+	if s.runningAccounts == nil {
+		return
+	}
+
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		if s.runningAccounts() > 0 {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-deadline:
+			s.log.Warn("Telemetry: no running accounts after timeout, sending heartbeat anyway")
+			return
+		case <-ticker.C:
 		}
 	}
 }
