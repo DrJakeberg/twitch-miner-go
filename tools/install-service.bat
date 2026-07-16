@@ -20,11 +20,13 @@ if %errorlevel% neq 0 (
 set SERVICE_NAME=twitch-miner-go
 set SCRIPT_DIR=%~dp0
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
+set PROJECT_DIR=%SCRIPT_DIR%\..
+for %%I in ("%PROJECT_DIR%") do set "PROJECT_DIR=%%~fI"
 set BINARY_NAME=twitch-miner-go.exe
-set WRAPPER_SCRIPT=%SCRIPT_DIR%\_service-start.bat
+set WRAPPER_SCRIPT=%PROJECT_DIR%\_service-start.bat
 set NSSM_VERSION=2.24
-set NSSM_DIR=%SCRIPT_DIR%\tools\nssm
-set LOG_DIR=%SCRIPT_DIR%\logs
+set NSSM_DIR=%SCRIPT_DIR%\nssm
+set LOG_DIR=%PROJECT_DIR%\logs
 
 REM -- Admin check -------------------------------------------------
 net session >nul 2>&1
@@ -96,7 +98,7 @@ if !errorlevel! equ 0 (
 )
 
 REM -- Wizard ------------------------------------------------------
-set "SVC_CONFIG=%SCRIPT_DIR%\configs"
+set "SVC_CONFIG=%PROJECT_DIR%\configs"
 set "SVC_PORT=8080"
 set "SVC_LOG_LEVEL=INFO"
 
@@ -104,7 +106,7 @@ echo.
 echo     Default values shown in brackets. Press Enter to accept.
 echo.
 set /p "SVC_CONFIG=[?] Config directory [!SVC_CONFIG!]: "
-if "!SVC_CONFIG!"=="" set "SVC_CONFIG=%SCRIPT_DIR%\configs"
+if "!SVC_CONFIG!"=="" set "SVC_CONFIG=%PROJECT_DIR%\configs"
 
 set /p "SVC_PORT=[?] HTTP port [!SVC_PORT!]: "
 if "!SVC_PORT!"=="" set "SVC_PORT=8080"
@@ -119,7 +121,7 @@ if "!SVC_AUTOSTART!"=="" set "SVC_AUTOSTART=Y"
 echo.
 echo [+] Summary:
 echo     Service:   %SERVICE_NAME%
-echo     Project:   %SCRIPT_DIR%
+echo     Project:   %PROJECT_DIR%
 echo     Config:    !SVC_CONFIG!
 echo     Port:      !SVC_PORT!
 echo     Log level: !SVC_LOG_LEVEL!
@@ -151,7 +153,7 @@ if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
 > "%WRAPPER_SCRIPT%" echo @echo off
 >> "%WRAPPER_SCRIPT%" echo setlocal
->> "%WRAPPER_SCRIPT%" echo cd /d "%SCRIPT_DIR%"
+>> "%WRAPPER_SCRIPT%" echo cd /d "%PROJECT_DIR%"
 >> "%WRAPPER_SCRIPT%" echo call _run.bat -config "!SVC_CONFIG!" -port !SVC_PORT! -log-level !SVC_LOG_LEVEL!
 
 REM -- Install via NSSM --------------------------------------------
@@ -164,7 +166,7 @@ if !errorlevel! neq 0 (
 )
 
 REM Configure service behavior
-"!NSSM!" set %SERVICE_NAME% AppDirectory "%SCRIPT_DIR%" >nul
+"!NSSM!" set %SERVICE_NAME% AppDirectory "%PROJECT_DIR%" >nul
 "!NSSM!" set %SERVICE_NAME% Description "Twitch Channel Points Miner (Go)" >nul
 "!NSSM!" set %SERVICE_NAME% AppStdout "%LOG_DIR%\service.log" >nul
 "!NSSM!" set %SERVICE_NAME% AppStderr "%LOG_DIR%\service.log" >nul
@@ -345,10 +347,10 @@ if exist "%NSSM_DIR%\nssm.exe" (
 exit /b 1
 
 :build_binary
-cd /d "%SCRIPT_DIR%"
+cd /d "%PROJECT_DIR%"
 
-if exist "%SCRIPT_DIR%\VERSION" (
-    set /p VERSION=<"%SCRIPT_DIR%\VERSION"
+if exist "%PROJECT_DIR%\VERSION" (
+    set /p VERSION=<"%PROJECT_DIR%\VERSION"
 ) else (
     set VERSION=dev
 )
@@ -356,7 +358,7 @@ for /f "tokens=*" %%i in ('git rev-parse --short HEAD 2^>nul') do set GIT_COMMIT
 if not defined GIT_COMMIT set GIT_COMMIT=unknown
 
 set LDFLAGS=-X github.com/Guliveer/twitch-miner-go/internal/version.Number=!VERSION! -X github.com/Guliveer/twitch-miner-go/internal/version.GitCommit=!GIT_COMMIT!
-go build -ldflags "!LDFLAGS!" -o "%SCRIPT_DIR%\%BINARY_NAME%" ./cmd/twitch-miner-go
+go build -ldflags "!LDFLAGS!" -o "%PROJECT_DIR%\%BINARY_NAME%" ./cmd/twitch-miner-go
 exit /b %errorlevel%
 
 :usage

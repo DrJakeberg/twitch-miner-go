@@ -146,7 +146,7 @@ cp configs/example.yaml.example configs/your_twitch_username.yaml
 
 See [`configs/example.yaml.example`](configs/example.yaml.example) for the full schema. Files with a `.yaml.example` extension are not loaded as configs — only `.yaml` and `.yml` files are loaded.
 
-> **Prefer a GUI?** Run `_edit-config.bat` (Windows) or `./_edit-config.sh` (Linux/macOS) to open a visual config editor in your browser. No additional runtimes required — the editor is a self-contained Go binary. See [Config Editor](#152-config-editor) below for details.
+> **Prefer a GUI?** Run `tools\edit-config.bat` (Windows) or `./tools/edit-config.sh` (Linux/macOS) to open a visual config editor in your browser. No additional runtimes required — the editor is a self-contained Go binary. See [Config Editor](#152-config-editor) below for details.
 
 > **After cloning:** The repository includes the maintainer's own account configs (e.g. `guliveer_.yaml`). These are skipped automatically unless `RUN_OWNER_ACCOUNTS=true` is set — so they will not run on your machine and you do not need to delete or disable them. Just create your own config from the example template.
 
@@ -212,10 +212,10 @@ A self-contained Go binary for creating, editing, and deleting account configs. 
 
 ```bash
 # Windows
-_edit-config.bat
+tools\edit-config.bat
 
 # Linux / macOS
-./_edit-config.sh
+./tools/edit-config.sh
 ```
 
 The script builds the binary on first run (requires Go), then launches it. The web editor opens automatically in your browser and reads/writes YAML files directly in `configs/`.
@@ -232,7 +232,7 @@ The script builds the binary on first run (requires Go), then launches it. The w
 **TUI mode** provides an interactive terminal interface — useful in headless environments or when a browser isn't available:
 
 ```bash
-./_edit-config.sh --tui
+./tools/edit-config.sh --tui
 # or
 config-editor --tui --config /path/to/configs
 ```
@@ -437,7 +437,7 @@ Cookie files store authentication tokens in plaintext by default. You can option
 
 ```bash
 # Generate an encryption key
-./scripts/gen-cookie-key.sh
+./tools/gen-cookie-key.sh
 
 # Add the key to your .env file
 echo 'COOKIE_ENCRYPTION_KEY=<generated_key>' >> .env
@@ -448,7 +448,7 @@ echo 'COOKIE_ENCRYPTION_KEY=<generated_key>' >> .env
 - **Without `COOKIE_ENCRYPTION_KEY`** — cookies are stored and loaded as plaintext (default, unchanged behavior).
 - **With `COOKIE_ENCRYPTION_KEY`** — cookie values are encrypted when saved and transparently decrypted when loaded. Existing plaintext cookie files are automatically migrated to encrypted on the first save after enabling encryption.
 
-> **Note:** The encryption key is a Base64-encoded 32-byte AES-256 key. Generate it with `./scripts/gen-cookie-key.sh` or `openssl rand -base64 32`. Keep this key safe — losing it means losing access to stored cookies (you will need to re-authenticate).
+> **Note:** The encryption key is a Base64-encoded 32-byte AES-256 key. Generate it with `./tools/gen-cookie-key.sh` or `openssl rand -base64 32`. Keep this key safe — losing it means losing access to stored cookies (you will need to re-authenticate).
 
 ## 1.7. Notifications
 
@@ -729,7 +729,7 @@ Run twitch-miner-go as a native Linux service with automatic restarts and boot s
 ./_run.sh   # Ctrl+C after build completes
 
 # Run the installer wizard
-sudo ./_install-service.sh install
+sudo ./tools/install-service.sh install
 ```
 
 The wizard will prompt for service name, paths, port, user, and optionally enable + start the service.
@@ -751,7 +751,7 @@ tail -f /var/log/twitch-miner-go.log  # follow logs
 ### 1.10.2. Uninstalling
 
 ```bash
-sudo ./_install-service.sh uninstall
+sudo ./tools/install-service.sh uninstall
 ```
 
 ### 1.10.3. Default File Locations
@@ -771,7 +771,7 @@ Run twitch-miner-go as a Windows service with automatic restarts. The binary is 
 
 ```bat
 REM Right-click and select "Run as administrator"
-_install-service.bat install
+tools\install-service.bat install
 ```
 
 The wizard will prompt for config directory, port, and log level.
@@ -779,16 +779,16 @@ The wizard will prompt for config directory, port, and log level.
 ### 1.11.1. Managing the Service
 
 ```bat
-_install-service.bat start       REM starts (rebuilds the binary first)
-_install-service.bat stop
-_install-service.bat restart     REM restart with a fresh rebuild
-_install-service.bat status
+tools\install-service.bat start       REM starts (rebuilds the binary first)
+tools\install-service.bat stop
+tools\install-service.bat restart     REM restart with a fresh rebuild
+tools\install-service.bat status
 ```
 
 ### 1.11.2. Uninstalling
 
 ```bat
-_install-service.bat uninstall
+tools\install-service.bat uninstall
 ```
 
 > See [DEPLOYMENT.md](DEPLOYMENT.md) for the full Windows service deployment guide.

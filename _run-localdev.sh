@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Build and run twitch-miner-go (local development defaults)
+# Adds -no-lifecycle-notify to suppress start/stop/crash notifications.
+# Any additional flags are passed through.
+# Usage: ./_run-localdev.sh [flags]
+# Example: ./_run-localdev.sh -config configs -port 9090 -log-level debug
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+exec "$PROJECT_DIR/_run.sh" -no-lifecycle-notify "$@"

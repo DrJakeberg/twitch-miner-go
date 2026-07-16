@@ -46,7 +46,7 @@ chore: update dependencies
 Run the hook installer to enable local commit validation:
 
 ```bash
-./scripts/install-hooks.sh
+./tools/install-hooks.sh
 ```
 
 This configures three git hooks:
@@ -55,7 +55,7 @@ This configures three git hooks:
 - **`commit-msg`** — validates that every commit message follows the Conventional Commits format before it is recorded.
 - **`pre-push`** — re-validates all outgoing commits before they are pushed to the remote.
 
-> **Tip:** The hooks are stored in [`scripts/githooks/`](scripts/githooks/) and the installer ([`scripts/install-hooks.sh`](scripts/install-hooks.sh)) simply points `core.hooksPath` at that directory — no files are copied into `.git/`.
+> **Tip:** The hooks are stored in [`tools/githooks/`](tools/githooks/) and the installer ([`tools/install-hooks.sh`](tools/install-hooks.sh)) simply points `core.hooksPath` at that directory — no files are copied into `.git/`.
 
 ## Pull Requests
 

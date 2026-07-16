@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "cmd/twitch-miner-go/main.go": {
-    "mtime": 1783550736.184039,
-    "ast_hash": "ff43b4a5e36b8a568fa65b65ef250e99",
+    "mtime": 1783955603.918007,
+    "ast_hash": "5041191a54caf710a04c833ee4833215",
     "semantic_hash": ""
   },
   "go.mod": {
@@ -20,13 +20,13 @@
     "semantic_hash": ""
   },
   "internal/auth/auth.go": {
-    "mtime": 1783276714.61564,
-    "ast_hash": "7c1010bb482207e8c5f2f6006c827a71",
+    "mtime": 1783972895.63248,
+    "ast_hash": "3ec24f08ff0e67ab4917c564ef141f04",
     "semantic_hash": ""
   },
   "internal/auth/cookies.go": {
-    "mtime": 1783170457.5863323,
-    "ast_hash": "07c536c9bac8981fe8fa75a9901b5d8f",
+    "mtime": 1783972895.5974805,
+    "ast_hash": "986b236cfb3d38cb030f1473d65cb215",
     "semantic_hash": ""
   },
   "internal/auth/device_code.go": {
@@ -339,11 +339,6 @@
     "ast_hash": "557c7e8d0ecaf773c0c186c69dcab506",
     "semantic_hash": ""
   },
-  "internal/server/analytics.go": {
-    "mtime": 1783451987.6317148,
-    "ast_hash": "2ce8160529d21a829c597c8ba40b2385",
-    "semantic_hash": ""
-  },
   "internal/server/handlers.go": {
     "mtime": 1783451987.6317148,
     "ast_hash": "6cd5794386438dd0c389a160830e9067",
@@ -444,31 +439,6 @@
     "ast_hash": "4eed6becdcabe3e48e86a891cac014ed",
     "semantic_hash": ""
   },
-  "scripts/gen-dashboard-auth.sh": {
-    "mtime": 1782763813.066762,
-    "ast_hash": "adeefb7cf1b8e2303db5a7d95b70573c",
-    "semantic_hash": ""
-  },
-  "scripts/githooks/commit-msg": {
-    "mtime": 1782763813.067262,
-    "ast_hash": "dcbf587f27d37a8bd53c0061059c348b",
-    "semantic_hash": ""
-  },
-  "scripts/githooks/pre-commit": {
-    "mtime": 1782763813.067763,
-    "ast_hash": "162e0a39911fc6a96eb0278a4abea8b4",
-    "semantic_hash": ""
-  },
-  "scripts/githooks/pre-push": {
-    "mtime": 1782763813.068262,
-    "ast_hash": "5c6a17943ffd0289037d18873b67cf6d",
-    "semantic_hash": ""
-  },
-  "scripts/install-hooks.sh": {
-    "mtime": 1782763813.068262,
-    "ast_hash": "f29578d9a8f25a33ede10690be639523",
-    "semantic_hash": ""
-  },
   ".agents/rules/graphify.md": {
     "mtime": 1782763812.9621172,
     "ast_hash": "f1e53ecc9194573d3c28fc116c743a2e",
@@ -480,8 +450,8 @@
     "semantic_hash": ""
   },
   ".claude/CLAUDE.md": {
-    "mtime": 1782763812.963118,
-    "ast_hash": "db73b0edd7ffbc61ceac177130730865",
+    "mtime": 1783961600.012974,
+    "ast_hash": "e5f75ca3ee64f2116aeead283de89c0b",
     "semantic_hash": ""
   },
   ".claude/skills/graphify/SKILL.md": {
@@ -570,8 +540,8 @@
     "semantic_hash": ""
   },
   ".github/copilot-instructions.md": {
-    "mtime": 1782763812.9816475,
-    "ast_hash": "ec2dc0dc7bef63488889f34de2f5584d",
+    "mtime": 1783961576.2105055,
+    "ast_hash": "252ef4b82454122c76fb44a73944179d",
     "semantic_hash": ""
   },
   ".github/wiki/Architecture.md": {
@@ -625,13 +595,13 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1783546876.6700952,
-    "ast_hash": "8fb83e9cf33eafe45066a7456d4d8dce",
+    "mtime": 1784059887.6710246,
+    "ast_hash": "91e4a46f23152d2c0d96f1314049db7c",
     "semantic_hash": ""
   },
   ".github/workflows/docker-publish.yml": {
-    "mtime": 1783547304.1164854,
-    "ast_hash": "59414d10c6cda3750fcbd587c27886b9",
+    "mtime": 1783628203.9657547,
+    "ast_hash": "1c5f11ff2bd2428ca6e4be48bf087d94",
     "semantic_hash": ""
   },
   ".github/workflows/fly-deploy.yml": {
@@ -650,28 +620,28 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1783626928.3613489,
-    "ast_hash": "135438e34ca3cded359a435ef6eb6000",
+    "mtime": 1783961453.9896839,
+    "ast_hash": "86af00a586e7df82999806192ee853c7",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1783451987.6171997,
-    "ast_hash": "804a32d5ee8824677a33db851441dfb5",
+    "mtime": 1783961477.113133,
+    "ast_hash": "8a535dccc06244540b07b331fd202124",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
-    "mtime": 1783256788.0054162,
-    "ast_hash": "33f97285fd1d95556845731e7080cf38",
+    "mtime": 1784216931.7245088,
+    "ast_hash": "49d79ea810cb7c9abee3d947fef12633",
     "semantic_hash": ""
   },
   "DEPLOYMENT.md": {
-    "mtime": 1783170444.6750185,
-    "ast_hash": "a85f78d702e7503e43e44968d447cb1d",
+    "mtime": 1784216917.922723,
+    "ast_hash": "20caf004be69e43b3be68118e7393596",
     "semantic_hash": ""
   },
   "GEMINI.md": {
-    "mtime": 1783451987.6177018,
-    "ast_hash": "804a32d5ee8824677a33db851441dfb5",
+    "mtime": 1783961517.9337504,
+    "ast_hash": "8a535dccc06244540b07b331fd202124",
     "semantic_hash": ""
   },
   "LICENSE.txt": {
@@ -680,8 +650,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1783465617.8662312,
-    "ast_hash": "0dd78bb1cd025cb35969de8b79b91d44",
+    "mtime": 1784216872.3593152,
+    "ast_hash": "5dcef1658a8552e291edd5947f7ab1bd",
     "semantic_hash": ""
   },
   "SECURITY.md": {
@@ -700,8 +670,8 @@
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1782763813.0066695,
-    "ast_hash": "66801d441c1d57a06fe1656c92852f35",
+    "mtime": 1784216903.2648664,
+    "ast_hash": "187da054bd0a386db29ab36f0f84815b",
     "semantic_hash": ""
   },
   "internal/configeditor/web/index.html": {
@@ -722,16 +692,6 @@
   ".opencode/plugins/graphify.js": {
     "mtime": 1783626928.3623497,
     "ast_hash": "111287aed37970b605d3ab422d1c93ec",
-    "semantic_hash": ""
-  },
-  "_edit-config.sh": {
-    "mtime": 1782763812.9936543,
-    "ast_hash": "9f3ccb1cb96077ce515aaf4650e9d3ae",
-    "semantic_hash": ""
-  },
-  "_install-service.sh": {
-    "mtime": 1782763812.9986618,
-    "ast_hash": "862bf103ed4ed5350257540e3b1f008c",
     "semantic_hash": ""
   },
   "_run.sh": {
@@ -825,8 +785,8 @@
     "semantic_hash": ""
   },
   "internal/server/accounts_api_test.go": {
-    "mtime": 1783451987.6317148,
-    "ast_hash": "cf2bddc44212d481c84f8185b75c1829",
+    "mtime": 1783869836.492649,
+    "ast_hash": "592b83be6ad4025b9a9fefce98b74300",
     "semantic_hash": ""
   },
   "internal/server/helpers_test.go": {
@@ -875,8 +835,8 @@
     "semantic_hash": ""
   },
   "internal/telemetry/telemetry.go": {
-    "mtime": 1783550878.5350428,
-    "ast_hash": "2c4a729e21669a9bb6d15b4c21dec588",
+    "mtime": 1784215118.2693052,
+    "ast_hash": "3544e7e2af807daeb14e6f260ffb5e91",
     "semantic_hash": ""
   },
   "CODE_OF_CONDUCT.md": {
@@ -922,6 +882,81 @@
   ".github/workflows/dependency-review.yml": {
     "mtime": 1783451987.615691,
     "ast_hash": "64abc01b7670537ce435d2c3ff385075",
+    "semantic_hash": ""
+  },
+  "_run-localdev.sh": {
+    "mtime": 1784216747.587488,
+    "ast_hash": "8576f2d146700d619c0aa20318e3bf8e",
+    "semantic_hash": ""
+  },
+  "internal/auth/cookies_test.go": {
+    "mtime": 1783970327.411631,
+    "ast_hash": "61ab7187c8a4cade6f7a08c620b040c7",
+    "semantic_hash": ""
+  },
+  "internal/encryption/encryption.go": {
+    "mtime": 1783960681.134881,
+    "ast_hash": "40db1250d0bf88c16ee69ecd9c23c1d6",
+    "semantic_hash": ""
+  },
+  "internal/encryption/encryption_test.go": {
+    "mtime": 1783960724.8710454,
+    "ast_hash": "465d6fd3a333f207f4b6b1bb481c0908",
+    "semantic_hash": ""
+  },
+  "internal/server/config_api.go": {
+    "mtime": 1783867318.537632,
+    "ast_hash": "921c37e19b4eff4f0aa15e73e4dfa019",
+    "semantic_hash": ""
+  },
+  "internal/server/config_api_test.go": {
+    "mtime": 1783867425.4269257,
+    "ast_hash": "44e8aa2960ad58dbd95fadf4f054cd97",
+    "semantic_hash": ""
+  },
+  "internal/server/server.go": {
+    "mtime": 1783867354.42146,
+    "ast_hash": "739617bcc99ae75c7a176559d214b478",
+    "semantic_hash": ""
+  },
+  "tools/edit-config.sh": {
+    "mtime": 1784216698.1839705,
+    "ast_hash": "38e6199456219895353e246f36c1786b",
+    "semantic_hash": ""
+  },
+  "tools/gen-cookie-key.sh": {
+    "mtime": 1784216977.5458884,
+    "ast_hash": "185ffc2dbe8b4f339da191d61ab77910",
+    "semantic_hash": ""
+  },
+  "tools/gen-dashboard-auth.sh": {
+    "mtime": 1784216976.8472054,
+    "ast_hash": "8ad624dd657049ff547b7b84f972da94",
+    "semantic_hash": ""
+  },
+  "tools/githooks/commit-msg": {
+    "mtime": 1782763813.067262,
+    "ast_hash": "dcbf587f27d37a8bd53c0061059c348b",
+    "semantic_hash": ""
+  },
+  "tools/githooks/pre-commit": {
+    "mtime": 1782763813.067763,
+    "ast_hash": "162e0a39911fc6a96eb0278a4abea8b4",
+    "semantic_hash": ""
+  },
+  "tools/githooks/pre-push": {
+    "mtime": 1782763813.068262,
+    "ast_hash": "5c6a17943ffd0289037d18873b67cf6d",
+    "semantic_hash": ""
+  },
+  "tools/install-hooks.sh": {
+    "mtime": 1782763813.068262,
+    "ast_hash": "f29578d9a8f25a33ede10690be639523",
+    "semantic_hash": ""
+  },
+  "tools/install-service.sh": {
+    "mtime": 1784216525.6822186,
+    "ast_hash": "f8ce1a059443e86c815defbe19426477",
     "semantic_hash": ""
   }
 }

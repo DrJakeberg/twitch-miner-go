@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Generate a Base64-encoded 32-byte AES-256 key for cookie encryption.
-# Usage: ./scripts/gen-cookie-key.sh
+# Usage: ./tools/gen-cookie-key.sh
 #
 # The generated key is safe for use as the COOKIE_ENCRYPTION_KEY environment
 # variable. Set it in your .env file or as a system/Fly.io secret.

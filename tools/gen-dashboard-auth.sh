@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Generate DASHBOARD_USER and DASHBOARD_PASSWORD_SHA256 for .env
-# Usage: ./scripts/gen-dashboard-auth.sh [username] [password]
+# Usage: ./tools/gen-dashboard-auth.sh [username] [password]
 #   - If no arguments, prompts interactively (password hidden)
 #   - If arguments provided, uses them directly
 

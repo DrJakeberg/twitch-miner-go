@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ─────────────────────────────────────────────────
 # Twitch Miner Go — service installer (systemd / OpenRC)
-# Usage: sudo ./install-service.sh
+# Usage: sudo ./tools/install-service.sh
 # ─────────────────────────────────────────────────
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -34,6 +34,7 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # ── Helpers ──────────────────────────────────────
 
@@ -107,8 +108,8 @@ preflight() {
 
 resolve_binary() {
     # 1. Pre-built binary next to this script
-    if [[ -x "${SCRIPT_DIR}/twitch-miner-go" ]]; then
-        BINARY_SOURCE="${SCRIPT_DIR}/twitch-miner-go"
+    if [[ -x "${PROJECT_DIR}/twitch-miner-go" ]]; then
+        BINARY_SOURCE="${PROJECT_DIR}/twitch-miner-go"
         return
     fi
 
@@ -119,20 +120,20 @@ resolve_binary() {
     fi
 
     # 3. Offer to build from source
-    if [[ -f "${SCRIPT_DIR}/go.mod" ]] && command -v go &>/dev/null; then
+    if [[ -f "${PROJECT_DIR}/go.mod" ]] && command -v go &>/dev/null; then
         if confirm "Binary not found. Build from source?"; then
             info "Building..."
             local version git_commit ldflags
-            version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "dev")
-            git_commit=$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            version=$(cat "${PROJECT_DIR}/VERSION" 2>/dev/null || echo "dev")
+            git_commit=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
             ldflags="-X github.com/Guliveer/twitch-miner-go/internal/version.Number=${version} -X github.com/Guliveer/twitch-miner-go/internal/version.GitCommit=${git_commit}"
-            go build -ldflags "${ldflags}" -o "${SCRIPT_DIR}/twitch-miner-go" "${SCRIPT_DIR}/cmd/twitch-miner-go"
-            BINARY_SOURCE="${SCRIPT_DIR}/twitch-miner-go"
+            go build -ldflags "${ldflags}" -o "${PROJECT_DIR}/twitch-miner-go" "${PROJECT_DIR}/cmd/twitch-miner-go"
+            BINARY_SOURCE="${PROJECT_DIR}/twitch-miner-go"
             return
         fi
     fi
 
-    error "Cannot find twitch-miner-go binary. Build it first with ./_run.sh or place it next to this script."
+    error "Cannot find twitch-miner-go binary. Build it first with ./_run.sh or place it in the project root."
     exit 1
 }
 
@@ -161,7 +162,7 @@ wizard() {
     prompt RUN_USER "Run as user" "$default_user"
 
     # Config deployment mode
-    if [[ -d "${SCRIPT_DIR}/configs" ]]; then
+    if [[ -d "${PROJECT_DIR}/configs" ]]; then
         echo ""
         info "How should config files be deployed to ${CONFIG_DIR}?"
         echo "  copy    — copy files (edit in ${CONFIG_DIR}, use '$0 sync' to re-copy from source)"
@@ -229,15 +230,15 @@ do_install() {
     chmod 755 "$bin_dest"
 
     # Deploy config files
-    if [[ -d "${SCRIPT_DIR}/configs" ]]; then
+    if [[ -d "${PROJECT_DIR}/configs" ]]; then
         if [[ "$CONFIG_MODE" == "symlink" ]]; then
             # Remove target dir if empty and create symlink to source
             if [[ -d "$CONFIG_DIR" ]] && [[ ! "$(ls -A "$CONFIG_DIR" 2>/dev/null)" ]]; then
                 rmdir "$CONFIG_DIR"
             fi
             if [[ ! -e "$CONFIG_DIR" ]]; then
-                info "Symlinking ${CONFIG_DIR} -> ${SCRIPT_DIR}/configs..."
-                ln -sfn "${SCRIPT_DIR}/configs" "$CONFIG_DIR"
+                info "Symlinking ${CONFIG_DIR} -> ${PROJECT_DIR}/configs..."
+                ln -sfn "${PROJECT_DIR}/configs" "$CONFIG_DIR"
             else
                 warn "Config directory already exists and is not empty, skipping symlink."
             fi
@@ -245,7 +246,7 @@ do_install() {
             # Copy mode
             if [[ ! "$(ls -A "$CONFIG_DIR" 2>/dev/null)" ]]; then
                 info "Copying config files to ${CONFIG_DIR}..."
-                cp -r "${SCRIPT_DIR}/configs/"* "$CONFIG_DIR/" 2>/dev/null || true
+                cp -r "${PROJECT_DIR}/configs/"* "$CONFIG_DIR/" 2>/dev/null || true
             fi
         fi
     fi
@@ -521,7 +522,7 @@ do_status() {
 do_sync() {
     local name="${1:-$DEFAULT_SERVICE_NAME}"
     local target_dir="$DEFAULT_CONFIG_DIR"
-    local source_dir="${SCRIPT_DIR}/configs"
+    local source_dir="${PROJECT_DIR}/configs"
 
     if [[ ! -d "$source_dir" ]]; then
         error "Source config directory not found: ${source_dir}"

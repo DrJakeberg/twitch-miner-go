@@ -58,6 +58,7 @@ type heartbeatPayload struct {
 	Arch            string `json:"arch"`
 	Deployment      string `json:"deployment"`
 	RunningAccounts int    `json:"running_accounts"`
+	UptimeSeconds   int    `json:"uptime_seconds"`
 }
 
 // LoadConfigFromEnv reads heartbeat configuration from environment variables.
@@ -106,10 +107,11 @@ func LoadConfigFromEnv(log *slog.Logger) (*Config, error) {
 
 // Sender sends periodic heartbeats to a telemetry server.
 type Sender struct {
-	cfg             *Config
-	client          *http.Client
-	log             *slog.Logger
-	runningAccounts func() int
+	cfg              *Config
+	client           *http.Client
+	log              *slog.Logger
+	runningAccounts  func() int
+	processStartTime time.Time
 }
 
 // SetRunningAccountsFunc sets a callback that returns the current number
@@ -121,9 +123,10 @@ func (s *Sender) SetRunningAccountsFunc(fn func() int) {
 // NewSender creates a new heartbeat sender.
 func NewSender(cfg *Config, log *slog.Logger) *Sender {
 	return &Sender{
-		cfg:    cfg,
-		client: &http.Client{Timeout: 10 * time.Second},
-		log:    log,
+		cfg:              cfg,
+		client:           &http.Client{Timeout: 10 * time.Second},
+		log:              log,
+		processStartTime: time.Now(),
 	}
 }
 
@@ -198,6 +201,7 @@ func (s *Sender) sendHeartbeat(ctx context.Context) {
 		Arch:            runtime.GOARCH,
 		Deployment:      detectDeployment(),
 		RunningAccounts: runningAccounts,
+		UptimeSeconds:   int(time.Since(s.processStartTime).Seconds()),
 	}
 
 	body, err := json.Marshal(payload)
@@ -235,6 +239,7 @@ func (s *Sender) sendHeartbeat(ctx context.Context) {
 		"os", payload.OS,
 		"arch", payload.Arch,
 		"running_accounts", payload.RunningAccounts,
+		"uptime_seconds", payload.UptimeSeconds,
 	)
 }
 
