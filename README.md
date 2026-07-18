@@ -1,6 +1,6 @@
 <p align="center">
   <picture>
-    <img src="docs/social_preview_1.png" alt="twitch-miner-go - Efficient Auto Drops &amp; Points Claim for Twitch" width="100%">
+    <img src="docs/social_preview_3.png" alt="twitch-miner-go - Efficient Auto Drops &amp; Points Claim for Twitch" width="100%">
   </picture>
 </p>
 
