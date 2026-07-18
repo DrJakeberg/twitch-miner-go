@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 
 //go:embed migrations/*.sql
 var migrations embed.FS
+
+const dbQueryTimeout = 5 * time.Second
 
 // PostgresStore is a Store backed by a PostgreSQL database.
 type PostgresStore struct {
@@ -29,18 +32,18 @@ func OpenPostgres(dsn string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("opening postgres: %w", err)
 	}
 	if err := db.Ping(); err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck // cleanup on error path; best-effort
 		return nil, fmt.Errorf("connecting to postgres: %w", err)
 	}
 
 	goose.SetBaseFS(migrations)
 	goose.SetLogger(goose.NopLogger())
 	if err := goose.SetDialect("postgres"); err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck // cleanup on error path; best-effort
 		return nil, fmt.Errorf("setting goose dialect: %w", err)
 	}
 	if err := goose.Up(db, "migrations"); err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck // cleanup on error path; best-effort
 		return nil, fmt.Errorf("running migrations: %w", err)
 	}
 
@@ -57,7 +60,7 @@ func OpenPostgres(dsn string) (*PostgresStore, error) {
 // to s.changes. Reconnects automatically on disconnect.
 func (s *PostgresStore) listen(dsn string) {
 	listener := pq.NewListener(dsn, 5*time.Second, time.Minute, nil)
-	defer listener.Close()
+	defer listener.Close() //nolint:errcheck // cleanup on exit; best-effort
 
 	if err := listener.Listen("accounts_changed"); err != nil {
 		// Non-fatal: fall back to polling only.
@@ -85,11 +88,14 @@ func (s *PostgresStore) notify() {
 }
 
 func (s *PostgresStore) ListAccounts() ([]AccountRow, error) {
-	rows, err := s.db.Query(`SELECT username, config_json, enabled, updated_at, last_started_at FROM accounts`)
+	ctx, cancel := context.WithTimeout(context.Background(), dbQueryTimeout)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctx, `SELECT username, config_json, enabled, updated_at, last_started_at FROM accounts`)
 	if err != nil {
 		return nil, fmt.Errorf("listing accounts: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // cleanup after query; best-effort
 
 	var accounts []AccountRow
 	for rows.Next() {
@@ -103,7 +109,10 @@ func (s *PostgresStore) ListAccounts() ([]AccountRow, error) {
 }
 
 func (s *PostgresStore) GetAccount(username string) (*AccountRow, error) {
-	row := s.db.QueryRow(
+	ctx, cancel := context.WithTimeout(context.Background(), dbQueryTimeout)
+	defer cancel()
+
+	row := s.db.QueryRowContext(ctx,
 		`SELECT username, config_json, enabled, updated_at, last_started_at FROM accounts WHERE username = $1`,
 		username,
 	)
@@ -118,7 +127,10 @@ func (s *PostgresStore) GetAccount(username string) (*AccountRow, error) {
 }
 
 func (s *PostgresStore) TouchLastStartedAt(username string) error {
-	_, err := s.db.Exec(
+	ctx, cancel := context.WithTimeout(context.Background(), dbQueryTimeout)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctx,
 		`UPDATE accounts SET last_started_at = $1 WHERE username = $2`,
 		time.Now().UnixMilli(), username,
 	)
@@ -146,7 +158,10 @@ func scanRow(scan func(...any) error) (AccountRow, error) {
 }
 
 func (s *PostgresStore) UpsertAccount(row AccountRow) error {
-	_, err := s.db.Exec(
+	ctx, cancel := context.WithTimeout(context.Background(), dbQueryTimeout)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO accounts (username, config_json, enabled, updated_at)
 		 VALUES ($1, $2, $3, $4)
 		 ON CONFLICT (username) DO UPDATE
@@ -163,7 +178,10 @@ func (s *PostgresStore) UpsertAccount(row AccountRow) error {
 }
 
 func (s *PostgresStore) DeleteAccount(username string) error {
-	_, err := s.db.Exec(`DELETE FROM accounts WHERE username = $1`, username)
+	ctx, cancel := context.WithTimeout(context.Background(), dbQueryTimeout)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctx, `DELETE FROM accounts WHERE username = $1`, username)
 	if err != nil {
 		return fmt.Errorf("deleting account %s: %w", username, err)
 	}
@@ -178,4 +196,8 @@ func (s *PostgresStore) Changes() <-chan struct{} {
 func (s *PostgresStore) Close() error {
 	s.once.Do(func() { close(s.done) })
 	return s.db.Close()
+}
+
+func (s *PostgresStore) Ping() error {
+	return s.db.Ping()
 }
