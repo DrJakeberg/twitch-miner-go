@@ -12,6 +12,7 @@ import (
 // *Client satisfies this interface.
 type API interface {
 	Login(ctx context.Context) error
+	SetSkipUnauth(skip bool)
 	CheckStreamerOnline(ctx context.Context, s *model.Streamer) error
 	LoadChannelPointsContext(ctx context.Context, s *model.Streamer) error
 	SendMinuteWatchedEvents(ctx context.Context, streamers []*model.Streamer) error

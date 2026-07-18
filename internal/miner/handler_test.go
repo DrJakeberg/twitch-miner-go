@@ -27,6 +27,7 @@ func (m *mockTwitch) JoinRaid(_ context.Context, raidID string) error {
 }
 
 func (m *mockTwitch) Login(_ context.Context) error                         { return nil }
+func (m *mockTwitch) SetSkipUnauth(_ bool)                                  {}
 func (m *mockTwitch) CheckStreamerOnline(_ context.Context, _ *model.Streamer) error { return nil }
 func (m *mockTwitch) LoadChannelPointsContext(_ context.Context, _ *model.Streamer) error { return nil }
 func (m *mockTwitch) SendMinuteWatchedEvents(_ context.Context, _ []*model.Streamer) error { return nil }

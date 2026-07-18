@@ -37,6 +37,7 @@ type Miner struct {
 	chat   *chat.Manager
 	notify            *notify.Dispatcher
 	suppressLifecycle bool
+	skipUnauth        bool
 	oneTimeEvent      model.Event
 
 	running atomic.Bool
@@ -92,6 +93,10 @@ func (m *Miner) SetSuppressLifecycleNotify(suppress bool) {
 	m.suppressLifecycle = suppress
 }
 
+func (m *Miner) SetSkipUnauth(skip bool) {
+	m.skipUnauth = skip
+}
+
 // SetOneTimeEvent sets an additional event to dispatch once immediately after
 // MINER_STARTED. Intended for DB-driven events like ACCOUNT_CONFIG_RELOADED.
 // Must be called before Run().
@@ -143,6 +148,7 @@ func (m *Miner) Run(ctx context.Context) error {
 		return fmt.Errorf("creating twitch client: %w", err)
 	}
 	m.twitch = tc
+	m.twitch.SetSkipUnauth(m.skipUnauth)
 
 	if err := m.twitch.Login(ctx); err != nil {
 		return fmt.Errorf("login failed for %s: %w", m.cfg.Username, err)

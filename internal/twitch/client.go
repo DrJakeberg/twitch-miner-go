@@ -114,6 +114,10 @@ func (c *Client) Login(ctx context.Context) error {
 	return c.Auth.Login(ctx)
 }
 
+func (c *Client) SetSkipUnauth(skip bool) {
+	c.Auth.SetSkipUnauth(skip)
+}
+
 // CheckStreamerOnline checks if a streamer is online and updates their state.
 // If the streamer was recently marked offline (< 60s), it skips the check.
 func (c *Client) CheckStreamerOnline(ctx context.Context, streamer *model.Streamer) error {

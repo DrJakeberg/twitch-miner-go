@@ -94,6 +94,8 @@ func main() {
 	autoUpdate := flag.Bool("auto-update", false, "Automatically download and apply updates on startup")
 	noLifecycleNotify := flag.Bool("no-lifecycle-notify", false, "Suppress MINER_STARTED / MINER_STOPPED / MINER_CRASHED notifications for this run")
 	logNoTime := flag.Bool("log-no-time", false, "Omit timestamps in console logs (useful when the platform adds its own, e.g. Fly.io); overrides LOG_NO_TIME env")
+	skipUnauth := flag.Bool("skip-unauth", false, "Skip accounts with no valid credentials instead of prompting for device code login")
+	noBanner := flag.Bool("no-banner", false, "Suppress the startup banner animation")
 	flag.Parse()
 
 	if *showVersion {
@@ -128,7 +130,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	playStartupAnimation(colored)
+	if !resolveNoBanner(*noBanner) {
+		playStartupAnimation(colored)
+	}
 	rootLog.Info("Starting twitch-miner-go", "version", version.String())
 
 	twitchRuntime := runtimecfg.LoadTwitchFromEnv(rootLog.Logger)
@@ -152,6 +156,7 @@ func main() {
 
 	mgr := managedminer.NewManager(ctx, rootLog, twitchRuntime)
 	mgr.SetSuppressLifecycleNotify(*noLifecycleNotify)
+	mgr.SetSkipUnauth(resolveSkipUnauth(*skipUnauth))
 
 	dbEnabled := os.Getenv("DB_ENABLED") == "true"
 	var accountStore store.Store
@@ -247,6 +252,20 @@ func resolveLogNoTime(flagVal bool) bool {
 		return true
 	}
 	return os.Getenv("LOG_NO_TIME") == "true"
+}
+
+func resolveSkipUnauth(flagVal bool) bool {
+	if flagVal {
+		return true
+	}
+	return os.Getenv("SKIP_UNAUTH") == "true"
+}
+
+func resolveNoBanner(flagVal bool) bool {
+	if flagVal {
+		return true
+	}
+	return os.Getenv("NO_BANNER") == "true"
 }
 
 func resolveLogDir(flagVal string) string {

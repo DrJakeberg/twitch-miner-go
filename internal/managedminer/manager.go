@@ -5,9 +5,11 @@ package managedminer
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
+	"github.com/Guliveer/twitch-miner-go/internal/auth"
 	"github.com/Guliveer/twitch-miner-go/internal/config"
 	"github.com/Guliveer/twitch-miner-go/internal/logger"
 	"github.com/Guliveer/twitch-miner-go/internal/miner"
@@ -47,6 +49,7 @@ type Manager struct {
 	launchFn func(e *entry, ctx context.Context, log *logger.Logger)
 
 	suppressLifecycleNotify bool
+	skipUnauth              bool
 }
 
 // SetSuppressLifecycleNotify controls whether all miners started by this
@@ -54,6 +57,10 @@ type Manager struct {
 // notifications. Must be called before the first Start().
 func (m *Manager) SetSuppressLifecycleNotify(suppress bool) {
 	m.suppressLifecycleNotify = suppress
+}
+
+func (m *Manager) SetSkipUnauth(skip bool) {
+	m.skipUnauth = skip
 }
 
 // NewManager creates a Manager. parentCtx is used as the base for all miner contexts.
@@ -76,6 +83,9 @@ func NewManager(parentCtx context.Context, rootLog *logger.Logger, twitchRT *run
 				if err == nil {
 					return
 				}
+				if errors.Is(err, auth.ErrSkippedUnauth) {
+					return
+				}
 				log.Error("Miner crashed, restarting", "account", e.cfg.Username, "error", err, "retry_in", delay)
 				select {
 				case <-ctx.Done():
@@ -88,6 +98,7 @@ func NewManager(parentCtx context.Context, rootLog *logger.Logger, twitchRT *run
 				}
 				newMiner := miner.NewMiner(e.cfg, log, m.twitchRT)
 				newMiner.SetSuppressLifecycleNotify(m.suppressLifecycleNotify)
+				newMiner.SetSkipUnauth(m.skipUnauth)
 				m.mu.Lock()
 				e.miner = newMiner
 				m.mu.Unlock()
@@ -184,6 +195,7 @@ func (m *Manager) startLocked(cfg *config.AccountConfig, oneTimeEvent model.Even
 	accountLog := m.rootLog.WithAccount(cfg.Username)
 	minerInstance := miner.NewMiner(cfg, accountLog, m.twitchRT)
 	minerInstance.SetSuppressLifecycleNotify(m.suppressLifecycleNotify)
+	minerInstance.SetSkipUnauth(m.skipUnauth)
 	if oneTimeEvent != "" {
 		minerInstance.SetOneTimeEvent(oneTimeEvent)
 	}

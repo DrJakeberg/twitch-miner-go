@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,10 @@ import (
 	"github.com/Guliveer/twitch-miner-go/internal/logger"
 	"github.com/Guliveer/twitch-miner-go/internal/runtimecfg"
 )
+
+// ErrSkippedUnauth is returned when -skip-unauth is set and no valid credentials
+// are found for an account. The account is silently skipped without prompting.
+var ErrSkippedUnauth = errors.New("skipping unauthenticated account")
 
 // Authenticator handles Twitch login, token management, and cookie persistence.
 // It is safe for concurrent use.
@@ -39,12 +44,11 @@ type Authenticator struct {
 	httpClient *http.Client
 	runtime    *runtimecfg.Twitch
 
+	skipUnauth bool
+
 	integrityToken  string
 	integrityExpire int64
 
-	// Pending device code flow state (set during loginWithDeviceCode).
-	// Uses a separate mutex so DeviceCodeStatus() is readable while Login()
-	// holds the main mu.
 	pendingCode     string
 	pendingUserCode string
 	pendingVerifyURI string
@@ -102,6 +106,10 @@ func NewForTest(userID string) *Authenticator {
 	return &Authenticator{
 		userID: userID,
 	}
+}
+
+func (a *Authenticator) SetSkipUnauth(skip bool) {
+	a.skipUnauth = skip
 }
 
 // Login performs the authentication flow with the following priority:
@@ -188,6 +196,10 @@ func (a *Authenticator) Login(ctx context.Context) error {
 		}
 	}
 
+	if a.skipUnauth {
+		a.log.Warn("No valid credentials found, skipping account", "account", a.username, "flag", "-skip-unauth")
+		return ErrSkippedUnauth
+	}
 	a.log.Error("No valid credentials found — starting device code login", "account", a.username)
 	if err := a.loginWithDeviceCode(ctx); err != nil {
 		return fmt.Errorf("device code login failed: %w", err)
