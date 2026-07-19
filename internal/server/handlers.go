@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 	"time"
+
+	"github.com/Guliveer/twitch-miner-go/internal/version"
 )
 
 func (s *AnalyticsServer) handleDashboard(w http.ResponseWriter, r *http.Request) {
@@ -20,7 +22,7 @@ func (s *AnalyticsServer) handleLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *AnalyticsServer) handleHealth(w http.ResponseWriter, _ *http.Request) {
-	checks := map[string]string{"status": "ok"}
+	checks := map[string]string{"status": "ok", "version": version.String()}
 
 	s.mu.RLock()
 	st := s.accountStore
