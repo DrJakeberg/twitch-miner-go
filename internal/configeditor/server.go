@@ -44,7 +44,7 @@ var schema = map[string]any{
 		"GAIN_FOR_RAID", "GAIN_FOR_CLAIM", "GAIN_FOR_WATCH", "GAIN_FOR_WATCH_STREAK",
 		"BET_WIN", "BET_LOSE", "BET_REFUND", "BET_FILTERS", "BET_GENERAL", "BET_FAILED", "BET_START",
 		"BONUS_CLAIM", "MOMENT_CLAIM", "JOIN_RAID",
-		"DROP_CLAIM", "DROP_STATUS",
+		"DROP_CLAIM", "DROP_STATUS", "DROP_MILESTONE",
 		"CHAT_MENTION", "GIFTED_SUB",
 		"MINER_STARTED", "MINER_STOPPED", "MINER_CRASHED",
 		"ACCOUNT_CONFIG_RELOADED",
@@ -425,8 +425,8 @@ func removeEmpty(v any) any {
 func validateConfig(cfg map[string]any) []string {
 	var errs []string
 
-	if mws, ok := cfg["max_watch_streams"].(float64); ok && mws < 1 {
-		errs = append(errs, "max_watch_streams must be at least 1")
+	if mws, ok := cfg["max_watch_streams"].(float64); ok && mws < 0 {
+		errs = append(errs, "max_watch_streams must be non-negative (0 = unlimited)")
 	}
 
 	hasStreamers := func() bool {

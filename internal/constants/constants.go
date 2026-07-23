@@ -121,6 +121,17 @@ const (
 	DefaultPubSubPongTimeout = 10 * time.Second
 	// DefaultMinuteWatchedInterval is the interval between minute-watched event sends.
 	DefaultMinuteWatchedInterval = 20 * time.Second
+	// FreezeDetectionThreshold is the duration after which a streamer that hasn't
+	// received a successful minute-watched credit is considered frozen and excluded
+	// from selection.
+	FreezeDetectionThreshold = 5 * time.Minute
+	// StalledCooldownDuration is how long a frozen streamer stays in cooldown
+	// before becoming eligible for selection again.
+	StalledCooldownDuration = 30 * time.Minute
+	// SynthSkipPolls is the number of consecutive polls in which a drop must
+	// appear in campaign details but not in inventory before it is considered
+	// synthetic (never actually available). At ~20s per poll, 6 polls ≈ 2min.
+	SynthSkipPolls = 6
 	// DefaultCampaignSyncInterval is the interval between drop campaign syncs.
 	// Reduced from 30min to 10min so claimable drops are claimed faster and
 	// new campaigns are discovered sooner.
@@ -150,11 +161,11 @@ var (
 	}
 	GQLPlaybackAccessToken = GQLOperation{
 		OperationName: "PlaybackAccessToken",
-		SHA256Hash:    "3093517e37e4f4cb48906155bcd894150aef92617939236d2508f3375ab732ce",
+		SHA256Hash:    "ed230aa1e33e07eebb8928504583da78a5173989fadfb1ac94be06a04f3cdbe9",
 	}
 	GQLVideoPlayerStreamInfoOverlayChannel = GQLOperation{
 		OperationName: "VideoPlayerStreamInfoOverlayChannel",
-		SHA256Hash:    "a5f2e34d626a9f4f5c0204f910bab2194948a9502089be558bb6e779a9e1b3d2",
+		SHA256Hash:    "198492e0857f6aedead9665c81c5a06d67b25b58034649687124083ff288597d",
 	}
 	GQLClaimCommunityPoints = GQLOperation{
 		OperationName: "ClaimCommunityPoints",
@@ -170,7 +181,7 @@ var (
 	}
 	GQLChannelPointsContext = GQLOperation{
 		OperationName: "ChannelPointsContext",
-		SHA256Hash:    "1530a003a7d374b0380b79db0be0534f30ff46e61cffa2bc0e2468a909fbc024",
+		SHA256Hash:    "374314de591e69925fce3ddc2bcf085796f56ebb8cad67a0daa3165c03adc345",
 	}
 	GQLJoinRaid = GQLOperation{
 		OperationName: "JoinRaid",
@@ -194,15 +205,19 @@ var (
 	}
 	GQLDropCampaignDetails = GQLOperation{
 		OperationName: "DropCampaignDetails",
-		SHA256Hash:    "f6396f5ffdde867a8f6f6da18286e4baf02e5b98d14689a69b5af320a4c7b7b8",
+		SHA256Hash:    "039277bf98f3130929262cc7c6efd9c141ca3749cb6dca442fc8ead9a53f77c1",
 	}
 	GQLDropsHighlightServiceAvailableDrops = GQLOperation{
 		OperationName: "DropsHighlightService_AvailableDrops",
-		SHA256Hash:    "9a62a09bce5b53e26e64a671e530bc599cb6aab1e5ba3cbd5d85966d3940716f",
+		SHA256Hash:    "782dad0f032942260171d2d80a654f88bdd0c5a9dddc392e9bc92218a0f42d20",
 	}
 	GQLGetIDFromLogin = GQLOperation{
 		OperationName: "GetIDFromLogin",
 		SHA256Hash:    "94e82a7b1e3c21e186daa73ee2afc4b8f23bade1fbbff6fe8ac133f50a2f58ca",
+	}
+	GQLGetLoginFromID = GQLOperation{
+		OperationName: "GetLoginFromID",
+		Query:         `query GetLoginFromID($id: ID!) { user(id: $id) { login } }`,
 	}
 	GQLPersonalSections = GQLOperation{
 		OperationName: "PersonalSections",
@@ -252,6 +267,7 @@ func AllGQLOperations() []GQLOperation {
 		GQLDropCampaignDetails,
 		GQLDropsHighlightServiceAvailableDrops,
 		GQLGetIDFromLogin,
+		GQLGetLoginFromID,
 		GQLPersonalSections,
 		GQLChannelFollows,
 		GQLUserPointsContribution,
