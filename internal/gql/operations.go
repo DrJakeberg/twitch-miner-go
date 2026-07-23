@@ -522,6 +522,7 @@ func (c *Client) GetPlaybackAccessToken(ctx context.Context, login string) (*Pla
 		"isVod":      false,
 		"vodID":      "",
 		"playerType": "site",
+		"platform":   "web",
 	}
 
 	data, err := c.PostGQL(ctx, constants.GQLPlaybackAccessToken, vars)
