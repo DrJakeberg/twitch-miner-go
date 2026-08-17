@@ -4,6 +4,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -41,6 +42,10 @@ func (ac *AccountConfig) ProxyURL() *url.URL {
 
 // DefaultConfigDir is the default directory for account configuration files.
 const DefaultConfigDir = "configs"
+
+// ownerAccounts lists config filenames (without extension) that belong to the
+// repository owner. These are skipped by default unless RUN_OWNER_ACCOUNTS=true.
+var ownerAccounts = []string{"guliveer_", "guliveer_2"}
 
 // LoadAccountConfig loads a single account configuration from a YAML file,
 // then overlays environment variables for secrets.
@@ -92,6 +97,10 @@ func LoadAllAccountConfigs(dir string) ([]*AccountConfig, error) {
 			return nil, fmt.Errorf("loading %s: %w", name, err)
 		}
 
+		if isOwnerAccount(cfg.Username) && os.Getenv("RUN_OWNER_ACCOUNTS") != "true" {
+			continue
+		}
+
 		configs = append(configs, cfg)
 	}
 
@@ -102,9 +111,19 @@ func LoadAllAccountConfigs(dir string) ([]*AccountConfig, error) {
 	return configs, nil
 }
 
+func isOwnerAccount(username string) bool {
+	for _, name := range ownerAccounts {
+		if strings.EqualFold(name, username) {
+			return true
+		}
+	}
+	return false
+}
+
 func applyDefaults(cfg *AccountConfig) {
-	if cfg.MaxWatchStreams <= 0 {
-		cfg.MaxWatchStreams = constants.MaxWatchStreams
+	if cfg.MaxWatchStreams == nil {
+		v := constants.MaxWatchStreams
+		cfg.MaxWatchStreams = &v
 	}
 
 	if len(cfg.Priority) == 0 {
@@ -115,18 +134,27 @@ func applyDefaults(cfg *AccountConfig) {
 		cfg.CategoryWatcher.PollInterval = 120 * time.Second
 	}
 
+	if cfg.TeamWatcher.PollInterval == 0 {
+		cfg.TeamWatcher.PollInterval = 120 * time.Second
+	}
+
 	if cfg.Followers.Order == "" {
 		cfg.Followers.Order = "ASC"
 	}
 }
 
 // getEnv looks up an environment variable with a per-account suffix.
+// Falls back to the global key (without suffix) if the per-account one is not set.
 func getEnv(key, username string) string {
-	return os.Getenv(key + "_" + strings.ToUpper(username))
+	if v := os.Getenv(key + "_" + strings.ToUpper(username)); v != "" {
+		return v
+	}
+	return os.Getenv(key)
 }
 
 // applyEnvOverrides overlays environment variables for secrets.
-// Every variable requires the username suffix: KEY_<UPPERCASE_USERNAME>
+// Each variable is first looked up with the per-account suffix KEY_<UPPERCASE_USERNAME>,
+// then falls back to the global key KEY (without suffix).
 func applyEnvOverrides(cfg *AccountConfig) {
 	username := cfg.Username
 
@@ -182,18 +210,40 @@ func applyEnvOverrides(cfg *AccountConfig) {
 	}
 }
 
+// AccountConfigToJSON serialises an AccountConfig to a JSON blob for DB storage.
+func AccountConfigToJSON(cfg *AccountConfig) (string, error) {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("marshalling account config for %s: %w", cfg.Username, err)
+	}
+	return string(b), nil
+}
+
+// AccountConfigFromJSON parses a JSON blob into an AccountConfig and applies the
+// same defaults and env-var overrides as LoadAccountConfig.
+func AccountConfigFromJSON(username, jsonBlob string) (*AccountConfig, error) {
+	var cfg AccountConfig
+	if err := json.Unmarshal([]byte(jsonBlob), &cfg); err != nil {
+		return nil, fmt.Errorf("parsing account config for %s: %w", username, err)
+	}
+	cfg.Username = username
+	applyDefaults(&cfg)
+	applyEnvOverrides(&cfg)
+	return &cfg, nil
+}
+
 // Validate checks the configuration for common errors and contradictory settings.
 func Validate(cfg *AccountConfig) error {
 	if cfg.Username == "" {
 		return fmt.Errorf("username is required")
 	}
 
-	if cfg.MaxWatchStreams < 1 {
-		return fmt.Errorf("account %s: max_watch_streams must be at least 1", cfg.Username)
+	if cfg.MaxWatchStreams != nil && *cfg.MaxWatchStreams < 0 {
+		return fmt.Errorf("account %s: max_watch_streams must be non-negative (0 = unlimited)", cfg.Username)
 	}
 
-	if len(cfg.Streamers) == 0 && !cfg.Followers.Enabled && !cfg.CategoryWatcher.Enabled {
-		return fmt.Errorf("account %s: at least one of streamers, followers, or category_watcher must be configured", cfg.Username)
+	if len(cfg.Streamers) == 0 && !cfg.Followers.Enabled && !cfg.CategoryWatcher.Enabled && !cfg.TeamWatcher.Enabled {
+		return fmt.Errorf("account %s: at least one of streamers, followers, category_watcher, or team_watcher must be configured", cfg.Username)
 	}
 
 	for i, streamerCfg := range cfg.Streamers {
@@ -205,13 +255,13 @@ func Validate(cfg *AccountConfig) error {
 	if cfg.Notifications.Telegram != nil && cfg.Notifications.Telegram.Enabled {
 		if cfg.Notifications.Telegram.Token == "" || cfg.Notifications.Telegram.ChatID == "" {
 			u := strings.ToUpper(cfg.Username)
-			return fmt.Errorf("account %s: telegram enabled but token or chat_id not set (use env vars TELEGRAM_TOKEN_%s and TELEGRAM_CHAT_ID_%s)", cfg.Username, u, u)
+			return fmt.Errorf("account %s: telegram enabled but token or chat_id not set (use env vars TELEGRAM_TOKEN_%s/TELEGRAM_CHAT_ID_%s or global TELEGRAM_TOKEN/TELEGRAM_CHAT_ID)", cfg.Username, u, u)
 		}
 	}
 
 	if cfg.Notifications.Discord != nil && cfg.Notifications.Discord.Enabled {
 		if cfg.Notifications.Discord.WebhookURL == "" {
-			return fmt.Errorf("account %s: discord enabled but webhook_url not set (use env var DISCORD_WEBHOOK_%s)", cfg.Username, strings.ToUpper(cfg.Username))
+			return fmt.Errorf("account %s: discord enabled but webhook_url not set (use env var DISCORD_WEBHOOK_%s or global DISCORD_WEBHOOK)", cfg.Username, strings.ToUpper(cfg.Username))
 		}
 	}
 
@@ -223,6 +273,11 @@ func Validate(cfg *AccountConfig) error {
 	// Category watcher enabled but no categories configured.
 	if cfg.CategoryWatcher.Enabled && len(cfg.CategoryWatcher.Categories) == 0 {
 		return fmt.Errorf("account %s: category_watcher is enabled but no categories are configured", cfg.Username)
+	}
+
+	// Team watcher enabled but no teams configured.
+	if cfg.TeamWatcher.Enabled && len(cfg.TeamWatcher.Teams) == 0 {
+		return fmt.Errorf("account %s: team_watcher is enabled but no teams are configured", cfg.Username)
 	}
 
 	// Batch interval must be positive when enabled.

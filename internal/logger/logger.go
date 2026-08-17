@@ -12,9 +12,12 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Guliveer/twitch-miner-go/internal/model"
 )
+
+var startupTime = time.Now()
 
 var eventEmoji = map[string]string{
 	"GAIN_FOR_WATCH":        "💵",
@@ -29,29 +32,29 @@ var eventEmoji = map[string]string{
 	"BET_FILTERS":           "🎰",
 	"BET_GENERAL":           "🎰",
 	"BET_FAILED":            "🎰",
-	"DROP_CLAIM":            "📦",
-	"DROP_STATUS":           "📦",
+	"DROP_CLAIM":              "📦",
+	"DROP_CLAIM_AVAILABLE":    "📦",
+	"DROP_STATUS":             "📦",
+	"DROP_MILESTONE":          "📊",
 	"STREAMER_ONLINE":       "🟢",
 	"STREAMER_OFFLINE":      "⚫",
 	"JOIN_RAID":             "⚔️",
 	"CHAT_MENTION":          "💬",
-	"MOMENT_CLAIM":          "🎉",
-	"GIFTED_SUB":            "🎁",
+	"MOMENT_CLAIM":            "🎉",
+	"GIFTED_SUB":              "🎁",
+	"ACCOUNT_CONFIG_RELOADED": "🔄",
 }
 
 // ANSI color codes for terminal output.
 const (
-	colorReset         = "\033[0m"
-	colorRed           = "\033[31m"
-	colorGreen         = "\033[32m"
-	colorYellow        = "\033[33m"
-	colorBlue          = "\033[34m"
-	colorLightBlue     = "\033[94m"
-	colorMagenta       = "\033[35m"
-	colorCyan          = "\033[36m"
-	colorWhite         = "\033[37m"
-	colorGray          = "\033[90m"
-	colorBrightMagenta = "\033[95m"
+	colorReset     = "\033[0m"
+	colorRed       = "\033[31m"
+	colorGreen     = "\033[32m"
+	colorYellow    = "\033[33m"
+	colorLightBlue = "\033[94m"
+	colorMagenta   = "\033[35m"
+	colorCyan      = "\033[36m"
+	colorGray      = "\033[90m"
 )
 
 // coloredAttrKeys maps slog attribute keys to ANSI color codes for value highlighting.
@@ -70,12 +73,14 @@ type NotifyFunc func(ctx context.Context, message string, event model.Event, met
 
 // Config holds logger configuration options.
 type Config struct {
-	Level slog.Level
-	FileLevel slog.Level
-	Colored bool
-	LogDir string
+	Level       slog.Level
+	FileLevel   slog.Level
+	Colored     bool
+	NoTime      bool
+	LogDir      string
 	AccountName string
-	NotifyFn NotifyFunc
+	NotifyFn    NotifyFunc
+	Format      string
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -99,7 +104,15 @@ type Logger struct {
 func Setup(cfg Config) (*Logger, error) {
 	var handlers []slog.Handler
 
-	consoleHandler := newColorHandler(os.Stdout, cfg.Level, cfg.Colored, cfg.AccountName)
+	var consoleHandler slog.Handler
+	if cfg.Format == "json" {
+		consoleHandler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.Level})
+		if cfg.AccountName != "" {
+			consoleHandler = consoleHandler.WithAttrs([]slog.Attr{slog.String("account", cfg.AccountName)})
+		}
+	} else {
+		consoleHandler = newColorHandler(os.Stdout, cfg.Level, cfg.Colored, cfg.NoTime, cfg.AccountName)
+	}
 	handlers = append(handlers, consoleHandler)
 
 	if cfg.LogDir != "" {
@@ -107,9 +120,10 @@ func Setup(cfg Config) (*Logger, error) {
 			return nil, fmt.Errorf("creating log directory %s: %w", cfg.LogDir, err)
 		}
 
-		filename := "miner.log"
+		timestamp := startupTime.Format("2003-12-31_13-10-00")
+		filename := timestamp + ".log"
 		if cfg.AccountName != "" {
-			filename = cfg.AccountName + ".log"
+			filename = timestamp + "_" + cfg.AccountName + ".log"
 		}
 
 		logFile, err := os.OpenFile(
@@ -121,9 +135,16 @@ func Setup(cfg Config) (*Logger, error) {
 			return nil, fmt.Errorf("opening log file: %w", err)
 		}
 
-		fileHandler := slog.NewTextHandler(logFile, &slog.HandlerOptions{
-			Level: cfg.FileLevel,
-		})
+		opts := &slog.HandlerOptions{Level: cfg.FileLevel}
+		var fileHandler slog.Handler
+		if cfg.Format == "json" {
+			fileHandler = slog.NewJSONHandler(logFile, opts)
+		} else {
+			fileHandler = slog.NewTextHandler(logFile, opts)
+		}
+		if cfg.AccountName != "" {
+			fileHandler = fileHandler.WithAttrs([]slog.Attr{slog.String("account", cfg.AccountName)})
+		}
 		handlers = append(handlers, fileHandler)
 	}
 
@@ -172,7 +193,7 @@ func (l *Logger) Event(ctx context.Context, event model.Event, msg string, args 
 			if key == "streamer" || key == "category" {
 				continue // skip, already in title
 			}
-			parts = append(parts, fmt.Sprintf("%s=%v", key, args[i+1]))
+			parts = append(parts, fmt.Sprintf("%s={%v}", key, args[i+1]))
 		}
 
 		formattedMsg := msg
@@ -212,21 +233,22 @@ func ParseLevel(s string) slog.Level {
 	}
 }
 
-
 type colorHandler struct {
 	mu          sync.Mutex
 	writer      io.Writer
 	level       slog.Level
 	colored     bool
+	noTime      bool
 	accountName string
 	attrs       []slog.Attr
 }
 
-func newColorHandler(w io.Writer, level slog.Level, colored bool, accountName string) *colorHandler {
+func newColorHandler(w io.Writer, level slog.Level, colored bool, noTime bool, accountName string) *colorHandler {
 	return &colorHandler{
 		writer:      w,
 		level:       level,
 		colored:     colored,
+		noTime:      noTime,
 		accountName: accountName,
 	}
 }
@@ -239,7 +261,6 @@ func (h *colorHandler) Handle(_ context.Context, record slog.Record) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	timeStr := record.Time.Format("02/01/06 15:04:05")
 	levelStr := record.Level.String()
 	msg := record.Message
 
@@ -250,33 +271,46 @@ func (h *colorHandler) Handle(_ context.Context, record slog.Record) error {
 
 	if h.colored {
 		levelColor := h.levelColor(record.Level)
-		fmt.Fprintf(h.writer, "%s%s - %s%s%s - %s%s",
-			colorGray, timeStr,
-			levelColor, levelStr, colorReset,
-			prefix, msg,
-		)
+		if h.noTime {
+			fmt.Fprintf(h.writer, "%s%s%s - %s%s",
+				levelColor, levelStr, colorReset,
+				prefix, msg,
+			)
+		} else {
+			timeStr := record.Time.Format("02/01/06 15:04:05")
+			fmt.Fprintf(h.writer, "%s%s - %s%s%s - %s%s",
+				colorGray, timeStr,
+				levelColor, levelStr, colorReset,
+				prefix, msg,
+			)
+		}
 	} else {
-		fmt.Fprintf(h.writer, "%s - %s - %s%s", timeStr, levelStr, prefix, msg)
+		if h.noTime {
+			fmt.Fprintf(h.writer, "%s - %s%s", levelStr, prefix, msg)
+		} else {
+			timeStr := record.Time.Format("02/01/06 15:04:05")
+			fmt.Fprintf(h.writer, "%s - %s - %s%s", timeStr, levelStr, prefix, msg)
+		}
 	}
 
 	for _, a := range h.attrs {
 		if h.colored {
 			if color, ok := coloredAttrKeys[a.Key]; ok {
-				fmt.Fprintf(h.writer, " %s=%s%v%s", a.Key, color, a.Value, colorReset)
+				fmt.Fprintf(h.writer, " %s=%s{%v}%s", a.Key, color, a.Value, colorReset)
 				continue
 			}
 		}
-		fmt.Fprintf(h.writer, " %s=%v", a.Key, a.Value)
+		fmt.Fprintf(h.writer, " %s={%v}", a.Key, a.Value)
 	}
 
 	record.Attrs(func(a slog.Attr) bool {
 		if h.colored {
 			if color, ok := coloredAttrKeys[a.Key]; ok {
-				fmt.Fprintf(h.writer, " %s=%s%v%s", a.Key, color, a.Value, colorReset)
+				fmt.Fprintf(h.writer, " %s=%s{%v}%s", a.Key, color, a.Value, colorReset)
 				return true
 			}
 		}
-		fmt.Fprintf(h.writer, " %s=%v", a.Key, a.Value)
+		fmt.Fprintf(h.writer, " %s={%v}", a.Key, a.Value)
 		return true
 	})
 
@@ -289,6 +323,7 @@ func (h *colorHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		writer:      h.writer,
 		level:       h.level,
 		colored:     h.colored,
+		noTime:      h.noTime,
 		accountName: h.accountName,
 		attrs:       append(copyAttrs(h.attrs), attrs...),
 	}
@@ -299,6 +334,7 @@ func (h *colorHandler) WithGroup(name string) slog.Handler {
 		writer:      h.writer,
 		level:       h.level,
 		colored:     h.colored,
+		noTime:      h.noTime,
 		accountName: h.accountName,
 		attrs:       copyAttrs(h.attrs),
 	}
@@ -325,7 +361,6 @@ func (h *colorHandler) levelColor(level slog.Level) string {
 		return colorCyan
 	}
 }
-
 
 type multiHandler struct {
 	handlers []slog.Handler

@@ -20,12 +20,12 @@ type DebugSnapshot struct {
 
 // DebugWatchingEntry describes one streamer selected for minute-watched events.
 type DebugWatchingEntry struct {
-	Username           string  `json:"username"`
-	DisplayName        string  `json:"display_name,omitempty"`
-	ChannelPoints      int     `json:"channel_points"`
-	WatchStreakMissing bool    `json:"watch_streak_missing"`
-	MinuteWatched      float64 `json:"minute_watched"`
-	DropsEnabled       bool    `json:"drops_enabled"`
+	Username             string  `json:"username"`
+	DisplayName          string  `json:"display_name,omitempty"`
+	ChannelPoints        int     `json:"channel_points"`
+	IsWatchStreakMissing bool    `json:"watch_streak_missing"`
+	MinuteWatched        float64 `json:"minute_watched"`
+	DropsEnabled         bool    `json:"drops_enabled"`
 }
 
 // DebugPredictionEntry describes one active prediction and its scheduling state.
@@ -49,17 +49,17 @@ type DebugPredictionEntry struct {
 // DebugSnapshot returns a read-only runtime view of the miner internals.
 func (m *Miner) DebugSnapshot() DebugSnapshot {
 	streamers := m.getStreamers()
-	watching := twitch.SelectStreamersToWatch(streamers, m.priorities, m.cfg.MaxWatchStreams)
+	watching := twitch.SelectStreamersToWatch(streamers, m.priorities, *m.cfg.MaxWatchStreams)
 
 	watchingEntries := make([]DebugWatchingEntry, 0, len(watching))
 	for _, streamer := range watching {
 		streamer.Mu.RLock()
 		entry := DebugWatchingEntry{
-			Username:           streamer.Username,
-			DisplayName:        streamer.DisplayName,
-			ChannelPoints:      streamer.ChannelPoints,
-			WatchStreakMissing: streamer.Stream != nil && streamer.Stream.WatchStreakMissing,
-			DropsEnabled:       streamer.Settings != nil && streamer.Settings.ClaimDrops,
+			Username:             streamer.Username,
+			DisplayName:          streamer.DisplayName,
+			ChannelPoints:        streamer.ChannelPoints,
+			IsWatchStreakMissing: streamer.Stream != nil && streamer.Stream.IsWatchStreakMissing,
+			DropsEnabled:         streamer.Settings != nil && streamer.Settings.ClaimDrops,
 		}
 		if streamer.Stream != nil {
 			entry.MinuteWatched = streamer.Stream.MinuteWatched

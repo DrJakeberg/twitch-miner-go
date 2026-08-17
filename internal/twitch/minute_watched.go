@@ -196,8 +196,8 @@ func (c *Client) sendMinuteWatchedForStreamer(ctx context.Context, httpClient *h
 }
 
 func (c *Client) logDropProgress(ctx context.Context, streamer *model.Streamer) {
-	streamer.Mu.RLock()
-	defer streamer.Mu.RUnlock()
+	streamer.Mu.Lock()
+	defer streamer.Mu.Unlock()
 
 	for _, campaign := range streamer.Stream.Campaigns {
 		for _, drop := range campaign.Drops {
@@ -205,6 +205,7 @@ func (c *Client) logDropProgress(ctx context.Context, streamer *model.Streamer) 
 				continue
 			}
 			if drop.IsPrintable {
+				streamer.UpdateHistory(string(model.EventDropStatus), 0, 1)
 				c.Log.Event(ctx, model.EventDropStatus, "Drop progress",
 					"streamer", streamer.Username,
 					"stream", streamer.Stream.String(),
@@ -262,23 +263,11 @@ func getSecondLastURL(playlist string) string {
 // This implements the priority selection logic from the Python version.
 func SelectStreamersToWatch(streamers []*model.Streamer, priorities []model.Priority, maxWatch int) []*model.Streamer {
 	if maxWatch <= 0 {
-		maxWatch = constants.MaxWatchStreams
+		maxWatch = len(streamers)
 	}
 
 	now := time.Now()
-
-	var onlineIndices []int
-	for i, s := range streamers {
-		s.Mu.RLock()
-		isOnline := s.IsOnline
-		onlineAt := s.OnlineAt
-		s.Mu.RUnlock()
-
-		if isOnline && (onlineAt.IsZero() || now.Sub(onlineAt) > 30*time.Second) {
-			onlineIndices = append(onlineIndices, i)
-		}
-	}
-
+	onlineIndices := collectOnlineIndices(streamers, now)
 	if len(onlineIndices) == 0 {
 		return nil
 	}
@@ -286,7 +275,7 @@ func SelectStreamersToWatch(streamers []*model.Streamer, priorities []model.Prio
 	watching := make(map[int]struct{})
 	selectedIndices := make([]int, 0, maxWatch)
 
-	addWatching := func(idx int) bool {
+	add := func(idx int) bool {
 		if len(selectedIndices) >= maxWatch {
 			return false
 		}
@@ -302,130 +291,262 @@ func SelectStreamersToWatch(streamers []*model.Streamer, priorities []model.Prio
 		if len(watching) >= maxWatch {
 			break
 		}
-
-		remaining := maxWatch - len(watching)
-
-		switch priority {
-		case model.PriorityOrder:
-			for _, idx := range onlineIndices {
-				if addWatching(idx) {
-					remaining--
-					if remaining <= 0 {
-						break
-					}
-				}
-			}
-
-		case model.PriorityStreak:
-			for _, idx := range onlineIndices {
-				if _, ok := watching[idx]; ok {
-					continue
-				}
-				s := streamers[idx]
-				s.Mu.RLock()
-				watchStreak := s.Settings != nil && s.Settings.WatchStreak
-				missing := s.Stream.WatchStreakMissing
-				offlineAt := s.OfflineAt
-				minuteWatched := s.Stream.MinuteWatched
-				s.Mu.RUnlock()
-
-				if watchStreak && missing &&
-					(offlineAt.IsZero() || now.Sub(offlineAt).Minutes() > 30) &&
-					minuteWatched < 7 && addWatching(idx) {
-					remaining--
-					if remaining <= 0 {
-						break
-					}
-				}
-			}
-
-		case model.PriorityDrops:
-			for _, idx := range onlineIndices {
-				if _, ok := watching[idx]; ok {
-					continue
-				}
-				s := streamers[idx]
-				s.Mu.RLock()
-				dropsCondition := s.DropsCondition()
-				s.Mu.RUnlock()
-
-				if dropsCondition && addWatching(idx) {
-					remaining--
-					if remaining <= 0 {
-						break
-					}
-				}
-			}
-
-		case model.PrioritySubscribed:
-			type indexMultiplier struct {
-				index      int
-				multiplier float64
-			}
-			var withMultiplier []indexMultiplier
-			for _, idx := range onlineIndices {
-				if _, ok := watching[idx]; ok {
-					continue
-				}
-				s := streamers[idx]
-				s.Mu.RLock()
-				hasMultiplier := s.HasPointsMultiplier()
-				total := s.TotalPointsMultiplier()
-				s.Mu.RUnlock()
-
-				if hasMultiplier {
-					withMultiplier = append(withMultiplier, indexMultiplier{idx, total})
-				}
-			}
-			sort.Slice(withMultiplier, func(i, j int) bool {
-				return withMultiplier[i].multiplier > withMultiplier[j].multiplier
-			})
-			for _, im := range withMultiplier {
-				if addWatching(im.index) {
-					remaining--
-				}
-				if remaining <= 0 {
-					break
-				}
-			}
-
-		case model.PriorityPointsAscending, model.PriorityPointsDescending:
-			type indexPoints struct {
-				index  int
-				points int
-			}
-			var items []indexPoints
-			for _, idx := range onlineIndices {
-				s := streamers[idx]
-				s.Mu.RLock()
-				points := s.ChannelPoints
-				s.Mu.RUnlock()
-				items = append(items, indexPoints{idx, points})
-			}
-			if priority == model.PriorityPointsAscending {
-				sort.Slice(items, func(i, j int) bool {
-					return items[i].points < items[j].points
-				})
-			} else {
-				sort.Slice(items, func(i, j int) bool {
-					return items[i].points > items[j].points
-				})
-			}
-			for _, item := range items {
-				if addWatching(item.index) {
-					remaining--
-					if remaining <= 0 {
-						break
-					}
-				}
-			}
-		}
+		applyPriority(priority, streamers, onlineIndices, watching, maxWatch, add)
 	}
 
 	result := make([]*model.Streamer, 0, len(selectedIndices))
 	for _, idx := range selectedIndices {
 		result = append(result, streamers[idx])
 	}
-
 	return result
+}
+
+func collectOnlineIndices(streamers []*model.Streamer, now time.Time) []int {
+	var out []int
+	for i, s := range streamers {
+		s.Mu.RLock()
+		isOnline := s.IsOnline
+		onlineAt := s.OnlineAt
+		dropsOnly := s.Settings != nil && s.Settings.DropsOnly
+		// Gate on CampaignIDs (populated at discovery and by updateStream), not
+		// Campaigns, which is only refreshed by the periodic campaign sync.
+		hasCampaignIDs := len(s.Stream.CampaignIDs) > 0
+		frozen := s.Stream.IsMinuteWatchStalled(constants.FreezeDetectionThreshold)
+		cooldownUntil := s.Stream.StalledCooldownUntil
+		s.Mu.RUnlock()
+		if frozen {
+			if cooldownUntil.IsZero() {
+				s.Mu.Lock()
+				s.Stream.StalledCooldownUntil = now.Add(constants.StalledCooldownDuration)
+				s.Mu.Unlock()
+			}
+			continue
+		}
+		if !cooldownUntil.IsZero() && now.Before(cooldownUntil) {
+			continue
+		}
+		if isOnline && (onlineAt.IsZero() || now.Sub(onlineAt) > 30*time.Second) {
+			if dropsOnly && !hasCampaignIDs {
+				continue
+			}
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
+func applyPriority(
+	priority model.Priority,
+	streamers []*model.Streamer,
+	onlineIndices []int,
+	watching map[int]struct{},
+	maxWatch int,
+	add func(int) bool,
+) {
+	remaining := maxWatch - len(watching)
+	switch priority {
+	case model.PriorityOrder:
+		applyPriorityOrder(onlineIndices, remaining, add)
+	case model.PriorityStreak:
+		applyPriorityStreak(streamers, onlineIndices, watching, remaining, add)
+	case model.PriorityDrops:
+		applyPriorityDrops(streamers, onlineIndices, watching, remaining, add)
+	case model.PrioritySubscribed:
+		applyPrioritySubscribed(streamers, onlineIndices, watching, remaining, add)
+	case model.PriorityPointsAscending, model.PriorityPointsDescending:
+		applyPriorityPoints(priority, streamers, onlineIndices, watching, remaining, add)
+	case model.PriorityEndingSoonest:
+		applyPriorityEndingSoonest(streamers, onlineIndices, watching, remaining, add)
+	case model.PriorityLowAvailabilityFirst:
+		applyPriorityLowAvailability(streamers, onlineIndices, watching, remaining, add)
+	}
+}
+
+func applyPriorityOrder(onlineIndices []int, remaining int, add func(int) bool) {
+	for _, idx := range onlineIndices {
+		if add(idx) {
+			remaining--
+			if remaining <= 0 {
+				break
+			}
+		}
+	}
+}
+
+func applyPriorityStreak(streamers []*model.Streamer, onlineIndices []int, watching map[int]struct{}, remaining int, add func(int) bool) {
+	for _, idx := range onlineIndices {
+		if _, ok := watching[idx]; ok {
+			continue
+		}
+		s := streamers[idx]
+		s.Mu.RLock()
+		watchStreak := s.Settings != nil && s.Settings.WatchStreak
+		missing := s.Stream.IsWatchStreakMissing
+		minuteWatched := s.Stream.MinuteWatched
+		s.Mu.RUnlock()
+		if watchStreak && missing &&
+			minuteWatched < 7 && add(idx) {
+			remaining--
+			if remaining <= 0 {
+				break
+			}
+		}
+	}
+}
+
+func applyPriorityDrops(streamers []*model.Streamer, onlineIndices []int, watching map[int]struct{}, remaining int, add func(int) bool) {
+	for _, idx := range onlineIndices {
+		if _, ok := watching[idx]; ok {
+			continue
+		}
+		s := streamers[idx]
+		s.Mu.RLock()
+		dropsCondition := s.DropsCondition()
+		s.Mu.RUnlock()
+		if dropsCondition && add(idx) {
+			remaining--
+			if remaining <= 0 {
+				break
+			}
+		}
+	}
+}
+
+func applyPrioritySubscribed(streamers []*model.Streamer, onlineIndices []int, watching map[int]struct{}, remaining int, add func(int) bool) {
+	type indexMultiplier struct {
+		index      int
+		multiplier float64
+	}
+	var candidates []indexMultiplier
+	for _, idx := range onlineIndices {
+		if _, ok := watching[idx]; ok {
+			continue
+		}
+		s := streamers[idx]
+		s.Mu.RLock()
+		hasMultiplier := s.HasPointsMultiplier()
+		total := s.TotalPointsMultiplier()
+		s.Mu.RUnlock()
+		if hasMultiplier {
+			candidates = append(candidates, indexMultiplier{idx, total})
+		}
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].multiplier > candidates[j].multiplier
+	})
+	for _, c := range candidates {
+		if add(c.index) {
+			remaining--
+		}
+		if remaining <= 0 {
+			break
+		}
+	}
+}
+
+func applyPriorityPoints(priority model.Priority, streamers []*model.Streamer, onlineIndices []int, watching map[int]struct{}, remaining int, add func(int) bool) {
+	type indexPoints struct {
+		index  int
+		points int
+	}
+	items := make([]indexPoints, 0, len(onlineIndices))
+	for _, idx := range onlineIndices {
+		if _, ok := watching[idx]; ok {
+			continue
+		}
+		s := streamers[idx]
+		s.Mu.RLock()
+		points := s.ChannelPoints
+		s.Mu.RUnlock()
+		items = append(items, indexPoints{idx, points})
+	}
+	if priority == model.PriorityPointsAscending {
+		sort.Slice(items, func(i, j int) bool { return items[i].points < items[j].points })
+	} else {
+		sort.Slice(items, func(i, j int) bool { return items[i].points > items[j].points })
+	}
+	for _, item := range items {
+		if add(item.index) {
+			remaining--
+			if remaining <= 0 {
+				break
+			}
+		}
+	}
+}
+
+func applyPriorityEndingSoonest(streamers []*model.Streamer, onlineIndices []int, watching map[int]struct{}, remaining int, add func(int) bool) {
+	type indexEnd struct {
+		index int
+		endAt time.Time
+	}
+	var candidates []indexEnd
+	for _, idx := range onlineIndices {
+		if _, ok := watching[idx]; ok {
+			continue
+		}
+		s := streamers[idx]
+		s.Mu.RLock()
+		campaigns := s.Stream.Campaigns
+		s.Mu.RUnlock()
+		if len(campaigns) == 0 {
+			continue
+		}
+		var earliest time.Time
+		for _, c := range campaigns {
+			if !c.EndAt.IsZero() && (earliest.IsZero() || c.EndAt.Before(earliest)) {
+				earliest = c.EndAt
+			}
+		}
+		if !earliest.IsZero() {
+			candidates = append(candidates, indexEnd{idx, earliest})
+		}
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].endAt.Before(candidates[j].endAt)
+	})
+	for _, c := range candidates {
+		if add(c.index) {
+			remaining--
+			if remaining <= 0 {
+				break
+			}
+		}
+	}
+}
+
+func applyPriorityLowAvailability(streamers []*model.Streamer, onlineIndices []int, watching map[int]struct{}, remaining int, add func(int) bool) {
+	type indexDrops struct {
+		index     int
+		dropCount int
+	}
+	var candidates []indexDrops
+	for _, idx := range onlineIndices {
+		if _, ok := watching[idx]; ok {
+			continue
+		}
+		s := streamers[idx]
+		s.Mu.RLock()
+		campaigns := s.Stream.Campaigns
+		s.Mu.RUnlock()
+		if len(campaigns) == 0 {
+			continue
+		}
+		totalDrops := 0
+		for _, c := range campaigns {
+			totalDrops += len(c.Drops)
+		}
+		candidates = append(candidates, indexDrops{idx, totalDrops})
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].dropCount < candidates[j].dropCount
+	})
+	for _, c := range candidates {
+		if add(c.index) {
+			remaining--
+			if remaining <= 0 {
+				break
+			}
+		}
+	}
 }

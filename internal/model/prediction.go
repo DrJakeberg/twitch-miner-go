@@ -458,14 +458,11 @@ func (b *Bet) Calculate(balance int) BetDecision {
 		chosen := b.Outcomes[b.Decision.Choice]
 		b.Decision.OutcomeID = chosen.ID
 
-		amount := int(float64(balance) * float64(b.Settings.Percentage) / 100.0)
-		if amount > b.Settings.MaxPoints {
-			amount = b.Settings.MaxPoints
-		}
+		amount := min(int(float64(balance)*float64(b.Settings.Percentage)/100.0), b.Settings.MaxPoints)
 
 		if b.Settings.StealthMode && amount >= chosen.TopPoints && chosen.TopPoints > 0 {
 			stealthReduction := 1.0 + rand.Float64()*4.0
-			amount = chosen.TopPoints - int(stealthReduction)
+			amount = max(chosen.TopPoints-int(stealthReduction), 10)
 		}
 
 		b.Decision.Amount = amount
@@ -498,10 +495,10 @@ type EventPrediction struct {
 	PredictionWindowSeconds float64          `json:"prediction_window_seconds"`
 	Status                  string           `json:"status"`
 	Result                  PredictionResult `json:"result"`
-	BoxFillable             bool             `json:"box_fillable"`
 	ScheduledFor            time.Time        `json:"scheduled_for"`
 	BetConfirmed            bool             `json:"bet_confirmed"`
 	BetPlaced               bool             `json:"bet_placed"`
+	BetSkipped              bool             `json:"bet_skipped"`
 	PlacementInFlight       bool             `json:"placement_in_flight"`
 	PlacementAttempts       int              `json:"placement_attempts"`
 	LastAttemptAt           time.Time        `json:"last_attempt_at"`

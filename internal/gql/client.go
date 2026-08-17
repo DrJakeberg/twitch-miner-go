@@ -36,15 +36,14 @@ type operationBehavior struct {
 	failOnErrors    bool
 	tryAltClientIDs bool
 	retryGQLErrors  bool
+	clientID        string // if set, override Client-Id header for this operation
 }
 
 // integrityFailureOps lists GQL operations where integrity check failures are
 // expected and should be logged at DEBUG instead of WARN. These operations
 // sometimes fail with "failed integrity check" but may still succeed on retry.
 var integrityFailureOps = map[string]bool{
-	"JoinRaid":             true,
-	"ClaimCommunityPoints": true,
-	"ViewerDropsDashboard": true,
+	"JoinRaid": true,
 }
 
 // operationBehaviors centralizes per-operation compatibility workarounds for
@@ -54,13 +53,15 @@ var operationBehaviors = map[string]operationBehavior{
 	// headers or with stale persisted-query behavior. Treating errors as fatal
 	// prevents silent "0 followers" fallbacks.
 	"ChannelFollows": {
-		skipIntegrity:   true,
 		failOnErrors:    true,
 		tryAltClientIDs: true,
 	},
 	"VideoPlayerStreamInfoOverlayChannel": {
 		tryAltClientIDs: true,
 		retryGQLErrors:  true,
+	},
+	"TeamPage": {
+		failOnErrors: true,
 	},
 }
 
@@ -84,10 +85,8 @@ func (cb *circuitBreaker) recordFailure() {
 	cb.consecutiveFails++
 	cb.lastFailure = time.Now()
 	if cb.consecutiveFails >= 10 {
-		backoff := time.Duration(cb.consecutiveFails-9) * 30 * time.Second
-		if backoff > 5*time.Minute {
-			backoff = 5 * time.Minute
-		}
+		multiplier := min(cb.consecutiveFails-9, 10)
+		backoff := min(time.Duration(multiplier)*30*time.Second, 5*time.Minute)
 		cb.cooldownUntil = time.Now().Add(backoff)
 	}
 	cb.mu.Unlock()
@@ -111,6 +110,18 @@ type Client struct {
 
 	maxRetries int
 	mu         sync.RWMutex
+}
+
+// NewClientForTest creates a GQL Client with a caller-supplied *http.Client,
+// allowing tests to inject a custom transport (e.g. mock round-tripper).
+func NewClientForTest(authenticator auth.Provider, log *logger.Logger, httpClient *http.Client) *Client {
+	return &Client{
+		httpClient: httpClient,
+		auth:       authenticator,
+		log:        log,
+		breaker:    &circuitBreaker{},
+		maxRetries: 0, // no retries in tests
+	}
 }
 
 // NewClient creates a new GQL Client with a shared HTTP client configured
@@ -280,12 +291,11 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 
 	behavior := operationBehaviors[opName]
 
-	// Raw queries (non-persisted) should not send the integrity token —
-	// Twitch's integrity system is designed for persisted queries and
-	// sending it with raw queries causes "service error" for some categories.
 	skipIntegrity := reqBody.Query != "" || behavior.skipIntegrity
-	clientIDs := []string{""}
-	if behavior.tryAltClientIDs {
+	clientIDs := []string{c.auth.AndroidClientID()}
+	if behavior.clientID != "" {
+		clientIDs = []string{behavior.clientID}
+	} else if behavior.tryAltClientIDs {
 		ids := c.auth.ClientIDsForGQL()
 		if len(ids) > 0 {
 			clientIDs = ids
@@ -307,46 +317,66 @@ func (c *Client) doGQLRequest(ctx context.Context, reqBody gqlRequest, opName st
 				return nil, fmt.Errorf("parsing GQL response for %s: %w", opName, err)
 			}
 
-			if len(response.Errors) > 0 {
-				errMsg := response.Errors[0].Message
-				if strings.Contains(errMsg, "integrity check") && integrityFailureOps[opName] {
-					c.log.Debug("GQL integrity check failure (expected)",
-						"operation", opName,
-						"error", errMsg)
-				} else {
-					c.log.Warn("GQL operation returned errors",
-						"operation", opName,
-						"error", errMsg,
-						"client_id_attempt", idx+1)
-				}
+			if len(response.Errors) == 0 {
+				return response.Data, nil
+			}
 
-				if behavior.retryGQLErrors && isRetryableGQLError(errMsg) && semanticRetries < 2 {
-					semanticRetries++
-					backoff := time.Duration(semanticRetries) * time.Second
-					c.log.Info("Retrying GQL operation after transient response error",
-						"operation", opName,
-						"retry", semanticRetries,
-						"backoff", backoff)
-					select {
-					case <-ctx.Done():
-						return nil, ctx.Err()
-					case <-time.After(backoff):
-					}
-					continue
-				}
+			errMsg := response.Errors[0].Message
 
-				if behavior.tryAltClientIDs && idx < len(clientIDs)-1 {
-					c.log.Info("Retrying GQL operation with alternate client ID",
-						"operation", opName,
-						"attempt", idx+2,
-						"total_attempts", len(clientIDs))
-					lastErr = wrapTransientGQLError(opName, errMsg)
-					break
-				}
-
+			// PersistedQueryNotFound means the server doesn't recognize this
+			// persisted query hash — a transient condition during ad breaks
+			// or when Twitch's registry is stale. It is not client-ID-dependent:
+			// cycling through alternate client IDs wastes time and logs.
+			// Log at DEBUG since it's expected during ads and the caller
+			// already treats a nil response as "streamer offline".
+			if strings.Contains(errMsg, "PersistedQueryNotFound") {
+				c.log.Debug("GQL operation returned known transient error",
+					"operation", opName,
+					"error", errMsg,
+					"client_id_attempt", idx+1)
 				if behavior.failOnErrors {
-					return nil, wrapTransientGQLError(opName, errMsg)
+					return nil, fmt.Errorf("%s: GQL operation returned error: %s", opName, errMsg)
 				}
+				return response.Data, nil
+			}
+
+			if strings.Contains(errMsg, "integrity check") && integrityFailureOps[opName] {
+				c.log.Debug("GQL integrity check failure (expected)",
+					"operation", opName,
+					"error", errMsg)
+			} else {
+				c.log.Warn("GQL operation returned errors",
+					"operation", opName,
+					"error", errMsg,
+					"client_id_attempt", idx+1)
+			}
+
+			if behavior.retryGQLErrors && isRetryableGQLError(errMsg) && semanticRetries < 2 {
+				semanticRetries++
+				backoff := time.Duration(semanticRetries) * time.Second
+				c.log.Info("Retrying GQL operation after transient response error",
+					"operation", opName,
+					"retry", semanticRetries,
+					"backoff", backoff)
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(backoff):
+				}
+				continue
+			}
+
+			if behavior.tryAltClientIDs && idx < len(clientIDs)-1 {
+				c.log.Info("Retrying GQL operation with alternate client ID",
+					"operation", opName,
+					"attempt", idx+2,
+					"total_clients", len(clientIDs))
+				lastErr = wrapTransientGQLError(opName, errMsg)
+				break
+			}
+
+			if behavior.failOnErrors {
+				return nil, wrapTransientGQLError(opName, errMsg)
 			}
 
 			return response.Data, nil

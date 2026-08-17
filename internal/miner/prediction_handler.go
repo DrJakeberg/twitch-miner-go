@@ -104,7 +104,17 @@ func (m *Miner) handlePredictionCreated(
 		return
 	}
 
+	// Store event before balance check so dedup works even when bet is rejected.
+	// Without this, repeated prediction updates re-trigger handlePredictionCreated
+	// and spam "Insufficient points" every second.
+	m.eventsPredictionsMu.Lock()
+	m.eventsPredictions[eventID] = event
+	m.eventsPredictionsMu.Unlock()
+
 	if betSettings.MinimumPoints > 0 && balance < betSettings.MinimumPoints {
+		event.Mu.Lock()
+		event.BetSkipped = true
+		event.Mu.Unlock()
 		m.log.Event(ctx, model.EventBetFilters,
 			"Insufficient points for bet",
 			"streamer", username,
@@ -113,10 +123,6 @@ func (m *Miner) handlePredictionCreated(
 			"minimum", betSettings.MinimumPoints)
 		return
 	}
-
-	m.eventsPredictionsMu.Lock()
-	m.eventsPredictions[eventID] = event
-	m.eventsPredictionsMu.Unlock()
 
 	m.log.Event(ctx, model.EventBetStart,
 		fmt.Sprintf("Placing bet in %.0fs", secondsUntilClose),
@@ -159,7 +165,7 @@ func (m *Miner) handlePredictionUpdated(
 	m.pendingTimersMu.Lock()
 	_, hasTimer := m.pendingTimers[eventID]
 	m.pendingTimersMu.Unlock()
-	if !hasTimer && eventStatus == "ACTIVE" && !event.BetPlaced && !event.BetConfirmed {
+	if !hasTimer && eventStatus == "ACTIVE" && !event.BetPlaced && !event.BetConfirmed && !event.BetSkipped {
 		delay := event.ClosingBetAfter(time.Now())
 		if delay < 0 {
 			delay = 0
@@ -278,13 +284,13 @@ func (m *Miner) handlePredictionResult(ctx context.Context, event *model.EventPr
 
 	if streamer != nil {
 		streamer.Mu.Lock()
-		streamer.UpdateHistory("PREDICTION", points["gained"], 1)
+		streamer.UpdateHistory("BET_GENERAL", points["gained"], 1)
 
 		switch resultType {
 		case "REFUND":
-			streamer.UpdateHistory("REFUND", -points["placed"], -1)
+			streamer.UpdateHistory("BET_REFUND", -points["placed"], -1)
 		case "WIN":
-			streamer.UpdateHistory("PREDICTION", -points["won"], -1)
+			streamer.UpdateHistory("BET_GENERAL", -points["won"], -1)
 		}
 		streamer.Mu.Unlock()
 	}
@@ -386,7 +392,7 @@ func (m *Miner) executePredictionAttempt(ctx context.Context, streamer *model.St
 		"remaining_seconds", fmt.Sprintf("%.2f", remaining),
 		"error", err)
 
-	if attempts < 3 && remaining > 2 && isTransientPredictionError(err) {
+	if attempts < 3 && remaining > 2 && isTransientPredictionError(err) && ctx.Err() == nil {
 		retryDelay := 2.0
 		if remaining < retryDelay {
 			retryDelay = remaining

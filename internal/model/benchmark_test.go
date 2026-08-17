@@ -23,8 +23,7 @@ func BenchmarkParseMessage(b *testing.B) {
 	rawJSON, _ := json.Marshal(raw)
 	topic := "community-points-user-v1.userABC"
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = ParseMessage(topic, rawJSON)
 	}
 }
@@ -46,8 +45,7 @@ func BenchmarkBetCalculate(b *testing.B) {
 	bet := NewBet(outcomes, s)
 	bet.UpdateOutcomes(outcomes)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		bet.Calculate(100000)
 	}
 }
@@ -71,8 +69,7 @@ func BenchmarkFilterConditionSkip(b *testing.B) {
 	bet.UpdateOutcomes(outcomes)
 	bet.Calculate(100000)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		bet.Skip()
 	}
 }
@@ -86,8 +83,7 @@ func BenchmarkUpdateOutcomes(b *testing.B) {
 
 	bet := NewBet(outcomes, DefaultBetSettings())
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		bet.UpdateOutcomes(outcomes)
 	}
 }

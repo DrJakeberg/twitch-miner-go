@@ -3,8 +3,25 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE.txt'
+      - 'docs/**'
+      - '.env.example'
+      - 'configs/example.yaml.example'
+      - '_install-service.sh'
+      - '_run.bat'
+      - '_run.sh'
+      - '_edit-config.bat'
+      - '_edit-config.sh'
+      - 'scripts/**'
+      - 'tools/**'
+      - '.github/**'
   pull_request:
     branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: write
@@ -15,50 +32,148 @@ concurrency:
 
 jobs:
   commit-lint:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Validate Conventional Commits
+      - name: Validate commit message
+        id: validate
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\([a-zA-Z0-9_-]+\))?(!)?: .+'
 
-          errors=0
-          while IFS= read -r line; do
-            sha="${line%% *}"
-            msg="${line#* }"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            MSG="$PR_TITLE"
+            LABEL="PR title"
+          else
+            MSG="$(git log -1 --format='%s')"
+            LABEL="Commit message"
+          fi
 
-            # Skip merge commits
-            if echo "$msg" | grep -qE '^Merge '; then
-              continue
-            fi
-
-            if ! echo "$msg" | grep -qE "$PATTERN"; then
-              echo "❌ ${sha:0:7}: $msg"
-              errors=$((errors + 1))
-            else
-              echo "✅ ${sha:0:7}: $msg"
-            fi
-          done <<< "$(git log "${BASE_SHA}..${HEAD_SHA}" --format='%H %s')"
-
-          if [ "$errors" -gt 0 ]; then
+          echo "$LABEL: $MSG"
+          if ! echo "$MSG" | grep -qE "$PATTERN"; then
             echo ""
-            echo "🚫 $errors commit(s) don't follow Conventional Commits format."
+            echo "🚫 $LABEL does not follow Conventional Commits format."
+            echo "This matters because squash-merge uses the PR title as the commit message,"
+            echo "and the version bump pipeline reads commit messages on main."
+            echo ""
             echo "Format: <type>[optional scope][!]: <description>"
             echo "Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build"
+            echo "Examples:"
+            echo "  feat: add Docker Compose support"
+            echo "  fix(gql): retry on transient failures"
+            echo "  feat!: require Twitch runtime identifiers"
             exit 1
           fi
 
-          echo ""
-          echo "✅ All commits follow Conventional Commits format."
+          echo "✅ $LABEL follows Conventional Commits format."
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.validate.outcome }}" = "success" ]; then
+            echo "## Commit Lint" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Commit message follows Conventional Commits format" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Commit Lint" >> "$GITHUB_STEP_SUMMARY"
+            echo "❌ Commit message does not follow Conventional Commits format" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Format: \`<type>[optional scope][!]: <description>\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  vet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Vet
+        id: vet
+        run: go vet ./...
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Vet" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.vet.outcome }}" = "success" ]; then
+            echo "✅ No issues found" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ go vet failed — check logs for details" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Lint
+        id: lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Lint" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.lint.outcome }}" = "success" ]; then
+            echo "✅ No lint issues found" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ Lint issues found — check logs for details" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Test
+        id: test
+        run: go test -v ./...
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Test" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.test.outcome }}" = "success" ]; then
+            echo "✅ All tests passed" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ Tests failed — check logs for details" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   build:
+    needs: [vet, lint, test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -74,160 +189,46 @@ jobs:
         run: go mod download
 
       - name: Build
+        id: build
         run: |
           VERSION=$(cat VERSION)
           GIT_COMMIT=$(git rev-parse --short HEAD)
           go build -v -ldflags "-X github.com/Guliveer/twitch-miner-go/internal/version.Number=${VERSION} -X github.com/Guliveer/twitch-miner-go/internal/version.GitCommit=${GIT_COMMIT}" ./...
 
-      - name: Test
-        run: go test -v ./...
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Build" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            echo "✅ Build succeeded" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ Build failed — check logs for details" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      - name: Vet
-        run: go vet ./...
+  release:
+    needs: [build, commit-lint]
+    uses: ./.github/workflows/release.yml
+    with:
+      dry_run: ${{ github.event_name != 'push' }}
+    secrets: inherit
 
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
-
-      - name: Lint
-        run: golangci-lint run
-
-  version:
-    needs: [build]
+  docker-publish:
+    needs: [release]
     if: >-
       github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
-      !startsWith(github.event.head_commit.message, 'chore:')
-    runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.version.outputs.new_version }}
-      bumped: ${{ steps.bump.outputs.bump }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+      needs.release.outputs.bumped != 'skip' &&
+      needs.release.outputs.bumped != ''
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      version: ${{ needs.release.outputs.new_version }}
+      dry-run: false
+    secrets: inherit
 
-      - name: Configure git user
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Determine version bump
-        id: bump
-        run: |
-          # Find the last version tag
-          LAST_TAG=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n1)
-
-          if [ -z "$LAST_TAG" ]; then
-            echo "No previous version tag found. Using first commit as base."
-            RANGE="HEAD"
-            COMMITS=$(git log --format="%s" "$RANGE")
-          else
-            echo "Last tag: $LAST_TAG"
-            RANGE="${LAST_TAG}..HEAD"
-            COMMITS=$(git log --format="%s" "$RANGE")
-          fi
-
-          if [ -z "$COMMITS" ]; then
-            echo "No new commits since last tag."
-            echo "bump=skip" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "Commits since last tag:"
-          echo "$COMMITS"
-          echo ""
-
-          BUMP="skip"
-
-          while IFS= read -r msg; do
-            [ -z "$msg" ] && continue
-
-            # Check for breaking changes
-            if echo "$msg" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\([a-zA-Z0-9_-]+\))?!: '; then
-              BUMP="major"
-              break
-            fi
-            if echo "$msg" | grep -qiE 'BREAKING CHANGE:'; then
-              BUMP="major"
-              break
-            fi
-
-            # Check for features
-            if echo "$msg" | grep -qE '^feat(\([a-zA-Z0-9_-]+\))?: '; then
-              if [ "$BUMP" != "major" ]; then
-                BUMP="minor"
-              fi
-              continue
-            fi
-
-            # Check for patch-level types
-            if echo "$msg" | grep -qE '^(fix|perf|refactor|build)(\([a-zA-Z0-9_-]+\))?: '; then
-              if [ "$BUMP" = "skip" ]; then
-                BUMP="patch"
-              fi
-              continue
-            fi
-
-            # Check for no-bump types (docs, style, test, ci, chore)
-            if echo "$msg" | grep -qE '^(docs|style|test|ci|chore)(\([a-zA-Z0-9_-]+\))?: '; then
-              continue
-            fi
-
-            # Non-conventional commit — skip
-            continue
-          done <<< "$COMMITS"
-
-          echo "Determined bump type: $BUMP"
-          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
-
-      - name: Determine next version
-        if: steps.bump.outputs.bump != 'skip'
-        id: version
-        run: |
-          CURRENT=$(cat VERSION)
-          echo "Current version: $CURRENT"
-
-          BUMP="${{ steps.bump.outputs.bump }}"
-
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-
-          case "$BUMP" in
-            major)
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-              ;;
-            minor)
-              MINOR=$((MINOR + 1))
-              PATCH=0
-              ;;
-            patch)
-              PATCH=$((PATCH + 1))
-              ;;
-          esac
-
-          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          echo "New version: $NEW_VERSION"
-
-          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Create and push tag
-        if: steps.bump.outputs.bump != 'skip'
-        env:
-          NEW_VERSION: ${{ steps.version.outputs.new_version }}
-        run: |
-          if git rev-parse "v${NEW_VERSION}" >/dev/null 2>&1; then
-            echo "Tag v${NEW_VERSION} already exists locally"
-            exit 0
-          fi
-          git tag -a "v${NEW_VERSION}" -m "v${NEW_VERSION}"
-          git push origin "refs/tags/v${NEW_VERSION}"
-
-      - name: Create GitHub Release
-        if: steps.bump.outputs.bump != 'skip'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "v${{ steps.version.outputs.new_version }}"
-          generate_release_notes: true
+  # Upstream deploys to fly.io from CI. This fork is self-hosted on `dt` via
+  # Portainer and pulls ghcr.io/drjakeberg/twitch-miner-go, so the fly deploy
+  # job is intentionally not wired up here.

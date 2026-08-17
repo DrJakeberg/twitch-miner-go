@@ -1,0 +1,32 @@
+title: "[Q&A] "
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **Found a bug? Want to request a feature?**
+        [Bug Report](https://github.com/Guliveer/twitch-miner-go/issues/new?template=bug_report.yml) and
+        [Feature Request](https://github.com/Guliveer/twitch-miner-go/issues/new?template=feature_request.yml)
+        issues are triaged and tracked — use them instead of a Q&A discussion so nothing gets lost.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I searched existing discussions and this hasn't been asked before
+          required: true
+        - label: I checked the [README](https://github.com/Guliveer/twitch-miner-go#readme) and [Wiki](https://github.com/Guliveer/twitch-miner-go/wiki)
+          required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Version, deployment method, relevant config snippets (remove all tokens and secrets).

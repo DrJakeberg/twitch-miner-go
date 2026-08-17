@@ -1,0 +1,63 @@
+name: Configuration Help
+description: Something isn't working with my setup or config
+labels: ["question"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I read the [README Configuration section](https://github.com/Guliveer/twitch-miner-go#15-configuration)
+          required: true
+        - label: I checked [configs/example.yaml.example](https://github.com/Guliveer/twitch-miner-go/blob/main/configs/example.yaml.example)
+          required: true
+        - label: I checked the [Troubleshooting wiki page](https://github.com/Guliveer/twitch-miner-go/wiki/Troubleshooting)
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "1.16.5"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - Local binary (_run.sh / _run.bat)
+        - Docker / Docker Compose
+        - Linux service (systemd / OpenRC)
+        - Windows service (NSSM)
+        - Fly.io
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to configure?
+      description: Describe what you want to achieve.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: Describe what you attempted and what happened. Include any error or warning messages from the logs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Your config (required)
+      description: |
+        Paste the relevant section of your YAML config.
+        **Remove all auth tokens, passwords, webhook URLs, and chat IDs.**
+      render: yaml
+    validations:
+      required: true

@@ -1,0 +1,42 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/wiki/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone wiki repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! git clone \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.wiki.git" \
+            wiki_repo 2>&1; then
+            echo "::error::Wiki repository not found."
+            echo "::error::Go to Settings → General → Features, enable Wikis, then create the first page manually at https://github.com/${{ github.repository }}/wiki — GitHub must initialize the wiki git repo before this workflow can push to it."
+            exit 1
+          fi
+
+      - name: Copy wiki pages
+        run: cp .github/wiki/*.md wiki_repo/
+
+      - name: Commit and push
+        run: |
+          cd wiki_repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet && echo "No changes to sync." && exit 0
+          git commit -m "sync wiki from main@${{ github.sha }}"
+          git push

@@ -5,8 +5,8 @@ type Event string
 
 // All supported miner events.
 const (
-	EventStreamerOnline      Event = "STREAMER_ONLINE"
-	EventStreamerOffline     Event = "STREAMER_OFFLINE"
+	EventStreamerOnline     Event = "STREAMER_ONLINE"
+	EventStreamerOffline    Event = "STREAMER_OFFLINE"
 	EventGainForRaid        Event = "GAIN_FOR_RAID"
 	EventGainForClaim       Event = "GAIN_FOR_CLAIM"
 	EventGainForWatch       Event = "GAIN_FOR_WATCH"
@@ -21,11 +21,17 @@ const (
 	EventBonusClaim         Event = "BONUS_CLAIM"
 	EventMomentClaim        Event = "MOMENT_CLAIM"
 	EventJoinRaid           Event = "JOIN_RAID"
-	EventDropClaim          Event = "DROP_CLAIM"
-	EventDropStatus         Event = "DROP_STATUS"
+	EventDropClaim              Event = "DROP_CLAIM"
+	EventDropClaimAvailable     Event = "DROP_CLAIM_AVAILABLE"
+	EventDropStatus             Event = "DROP_STATUS"
 	EventChatMention        Event = "CHAT_MENTION"
 	EventGiftedSub          Event = "GIFTED_SUB"
-	EventTest               Event = "TEST"
+	EventMinerStarted          Event = "MINER_STARTED"
+	EventMinerStopped          Event = "MINER_STOPPED"
+	EventMinerCrashed          Event = "MINER_CRASHED"
+	EventAccountConfigReloaded Event = "ACCOUNT_CONFIG_RELOADED"
+	EventDropMilestone         Event = "DROP_MILESTONE"
+	EventTest                  Event = "TEST"
 )
 
 // AllEvents returns a slice of all defined events.
@@ -48,9 +54,15 @@ func AllEvents() []Event {
 		EventMomentClaim,
 		EventJoinRaid,
 		EventDropClaim,
+		EventDropClaimAvailable,
 		EventDropStatus,
 		EventChatMention,
 		EventGiftedSub,
+		EventMinerStarted,
+		EventMinerStopped,
+		EventMinerCrashed,
+		EventAccountConfigReloaded,
+		EventDropMilestone,
 		EventTest,
 	}
 }
@@ -86,6 +98,10 @@ const (
 	PriorityPointsAscending
 	// PriorityPointsDescending prioritizes streamers with the most points.
 	PriorityPointsDescending
+	// PriorityEndingSoonest prioritizes campaigns ending soonest.
+	PriorityEndingSoonest
+	// PriorityLowAvailabilityFirst prioritizes campaigns with the lowest availability.
+	PriorityLowAvailabilityFirst
 )
 
 // String returns the string representation of a Priority.
@@ -103,6 +119,10 @@ func (p Priority) String() string {
 		return "POINTS_ASCENDING"
 	case PriorityPointsDescending:
 		return "POINTS_DESCENDING"
+	case PriorityEndingSoonest:
+		return "ENDING_SOONEST"
+	case PriorityLowAvailabilityFirst:
+		return "LOW_AVAILABILITY_FIRST"
 	default:
 		return "ORDER"
 	}
@@ -123,6 +143,10 @@ func ParsePriority(s string) Priority {
 		return PriorityPointsAscending
 	case "POINTS_DESCENDING":
 		return PriorityPointsDescending
+	case "ENDING_SOONEST":
+		return PriorityEndingSoonest
+	case "LOW_AVAILABILITY_FIRST":
+		return PriorityLowAvailabilityFirst
 	default:
 		return PriorityOrder
 	}

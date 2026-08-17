@@ -1,0 +1,16 @@
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **Please use the [Bug Report issue form](https://github.com/Guliveer/twitch-miner-go/issues/new?template=bug_report.yml) instead.**
+        Issues are triaged, labelled, and tracked — a discussion here is likely to get lost.
+        Come back here if you're not sure whether it's a bug or want to discuss the behaviour first.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Briefly describe the problem — then consider switching to the issue form above.
+    validations:
+      required: true

@@ -1,0 +1,50 @@
+title: "[Update] "
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Use this template to announce a notable change, new feature, or important update.
+        Describe what changed, why it matters, and what users need to do (if anything).
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release version this announcement relates to (e.g. v1.20.0).
+      placeholder: "v1.x.x"
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-changed
+    attributes:
+      label: What changed?
+      description: A clear summary of the new feature, behaviour change, or fix being announced.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-it-matters
+    attributes:
+      label: Why it matters
+      description: Context and motivation — what problem does this solve or what value does it add?
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact on existing users
+      description: >
+        What does this mean in practice? Does anything change for users who are already running the miner?
+        List any action required (config changes, env vars to set, steps to take).
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Links to relevant commits, docs, issues, or anything else worth knowing.
+    validations:
+      required: false

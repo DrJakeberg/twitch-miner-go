@@ -1,5 +1,6 @@
-# Binary
+# Binaries
 /twitch-miner-go
+/config-editor
 *.exe
 
 # IDE
@@ -18,9 +19,13 @@ vendor/
 
 # Runtime data
 cookies/**
+.instance_id
 *.json
 !configs/*.yaml
 !configs/*.yaml.example
+!graphify-out/graph.json
+!graphify-out/manifest.json
+graphify-out/graph.html
 
 # Logs
 *.log
@@ -30,3 +35,20 @@ logs/
 .env
 .env.*
 !.env.example
+
+# Local files
+**.local
+**.local.*
+
+# Service installer (generated)
+_service-start.bat
+
+# Other
+!.claude/settings.json
+.remember/
+.omc/
+.omo/
+graphify-out/cost.json
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/.graphify_uncached.txt

@@ -1,16 +1,48 @@
 name: Docker Publish
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to build and tag (e.g. 1.23.1)"
+        required: true
+        type: string
+      dry-run:
+        description: "Build and scan only, skip push"
+        type: boolean
+        default: false
   push:
-    branches:
-      - main
     tags:
       - "v*.*.*"
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE.txt'
+      - 'docs/**'
+      - '.env.example'
+      - 'configs/example.yaml.example'
+      - '_install-service.sh'
+      - '_run.bat'
+      - '_run.sh'
+      - '_edit-config.bat'
+      - '_edit-config.sh'
+      - 'scripts/**'
+      - 'tools/**'
+      - '.github/**'
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Build and scan only, skip push"
+        type: boolean
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: read
   packages: write
+  attestations: write
+  id-token: write
 
 concurrency:
   group: docker-publish-${{ github.ref }}
@@ -18,10 +50,17 @@ concurrency:
 
 jobs:
   publish:
+    # Run on version tags, workflow_call from CI, or manual trigger.
+    # When called via workflow_call, github.event_name inherits the caller's
+    # event (push), not 'workflow_call', so the 'push' check covers that case.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -33,36 +72,57 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/drjakeberg/twitch-miner-go
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,format=short,enable={{is_default_branch}}
-            type=ref,event=tag
-            type=semver,pattern={{version}},value=${{ github.ref_name }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ github.ref_name }}
+      - name: Normalize inputs
+        id: norm
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry_run=${{ inputs.dry-run }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Determine build version
         id: build_version
         run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
             VERSION="$(cat VERSION)"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+            type=ref,event=tag
+            type=semver,pattern={{version}},value=${{ steps.build_version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.build_version.outputs.version }}
+
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          # push: always push on tag events; respect dry-run for manual/call triggers
+          push: ${{ steps.norm.outputs.dry_run != 'true' }}
+          platforms: linux/amd64,linux/arm64
+          provenance: true
+          sbom: true
+          annotations: |
+            org.opencontainers.image.description=Efficient auto drops and points claim for Twitch
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.build_version.outputs.version }}
             GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+

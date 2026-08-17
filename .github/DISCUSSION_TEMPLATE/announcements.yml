@@ -1,0 +1,12 @@
+title: "[Announcement] "
+body:
+  - type: markdown
+    attributes:
+      value: Updates from maintainers.
+
+  - type: textarea
+    id: content
+    attributes:
+      label: Announcement
+    validations:
+      required: true

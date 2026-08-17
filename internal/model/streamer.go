@@ -19,19 +19,21 @@ type Streamer struct {
 
 	Settings *StreamerSettings `json:"settings,omitempty"`
 
-	IsOnline bool `json:"is_online"`
-	IsCategoryWatched bool `json:"is_category_watched"`
-	CategorySlug string `json:"category_slug,omitempty"`
+	IsOnline          bool   `json:"is_online"`
+	IsCategoryWatched bool   `json:"is_category_watched"`
+	CategorySlug      string `json:"category_slug,omitempty"`
+	IsTeamWatched     bool   `json:"is_team_watched"`
+	TeamName          string `json:"team_name,omitempty"`
 
 	StreamUpAt time.Time `json:"stream_up_at"`
-	OnlineAt time.Time `json:"online_at"`
-	OfflineAt time.Time `json:"offline_at"`
+	OnlineAt   time.Time `json:"online_at"`
+	OfflineAt  time.Time `json:"offline_at"`
 
 	ChannelPoints int `json:"channel_points"`
 
 	CommunityGoals map[string]*CommunityGoal `json:"community_goals,omitempty"`
 
-	ViewerIsMod bool `json:"viewer_is_mod"`
+	ViewerIsMod       bool               `json:"viewer_is_mod"`
 	ActiveMultipliers []PointsMultiplier `json:"active_multipliers,omitempty"`
 
 	Stream *Stream `json:"stream"`
@@ -51,7 +53,7 @@ type PointsMultiplier struct {
 // HistoryEntry tracks cumulative points earned for a specific reason code.
 type HistoryEntry struct {
 	Counter int `json:"counter"`
-	Amount int `json:"amount"`
+	Amount  int `json:"amount"`
 }
 
 // NewStreamer creates a new Streamer with sensible defaults.
@@ -74,16 +76,33 @@ func (s *Streamer) SetOffline() {
 }
 
 // SetOnline marks the streamer as online. Must be called with Mu held.
+//
+// When the streamer returns after a short offline gap (< 30 min), the streak
+// resolution state from the previous segment is carried over. If the streak was
+// already resolved before going offline, it stays resolved — Twitch counts short
+// restarts as the same stream.
 func (s *Streamer) SetOnline() {
 	if !s.IsOnline {
 		s.OnlineAt = time.Now()
 		s.IsOnline = true
+
+		// Capture streak state before InitWatchStreak resets it.
+		streakResolved := !s.Stream.IsWatchStreakMissing
+		shortGap := !s.OfflineAt.IsZero() && time.Since(s.OfflineAt) <= 30*time.Minute
+
 		s.Stream.InitWatchStreak()
+
+		if shortGap && streakResolved {
+			s.Stream.IsWatchStreakMissing = false
+		}
 	}
 }
 
 // UpdateHistory adds earned points for a given reason code.
 func (s *Streamer) UpdateHistory(reasonCode string, earned int, counter int) {
+	if s.History == nil {
+		s.History = make(map[string]*HistoryEntry)
+	}
 	if _, ok := s.History[reasonCode]; !ok {
 		s.History[reasonCode] = &HistoryEntry{}
 	}
@@ -91,7 +110,7 @@ func (s *Streamer) UpdateHistory(reasonCode string, earned int, counter int) {
 	s.History[reasonCode].Amount += earned
 
 	if reasonCode == "WATCH_STREAK" {
-		s.Stream.WatchStreakMissing = false
+		s.Stream.IsWatchStreakMissing = false
 	}
 }
 
@@ -230,14 +249,15 @@ func ParseChatPresence(s string) ChatPresence {
 
 // StreamerSettings holds per-streamer feature toggles and bet configuration.
 type StreamerSettings struct {
-	MakePredictions bool `json:"make_predictions" yaml:"make_predictions"`
-	FollowRaid bool `json:"follow_raid" yaml:"follow_raid"`
-	ClaimDrops bool `json:"claim_drops" yaml:"claim_drops"`
-	ClaimMoments bool `json:"claim_moments" yaml:"claim_moments"`
-	WatchStreak bool `json:"watch_streak" yaml:"watch_streak"`
-	CommunityGoalsEnabled bool `json:"community_goals" yaml:"community_goals"`
-	Bet *BetSettings `json:"bet,omitempty" yaml:"bet"`
-	Chat ChatPresence `json:"chat" yaml:"chat"`
+	MakePredictions       bool         `json:"make_predictions" yaml:"make_predictions"`
+	FollowRaid            bool         `json:"follow_raid" yaml:"follow_raid"`
+	ClaimDrops            bool         `json:"claim_drops" yaml:"claim_drops"`
+	ClaimMoments          bool         `json:"claim_moments" yaml:"claim_moments"`
+	WatchStreak           bool         `json:"watch_streak" yaml:"watch_streak"`
+	CommunityGoalsEnabled bool         `json:"community_goals" yaml:"community_goals"`
+	DropsOnly             bool         `json:"drops_only" yaml:"drops_only"`
+	Bet                   *BetSettings `json:"bet,omitempty" yaml:"bet"`
+	Chat                  ChatPresence `json:"chat" yaml:"chat"`
 }
 
 // DefaultStreamerSettings returns StreamerSettings with default values.

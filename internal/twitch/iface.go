@@ -12,6 +12,7 @@ import (
 // *Client satisfies this interface.
 type API interface {
 	Login(ctx context.Context) error
+	SetSkipUnauth(skip bool)
 	CheckStreamerOnline(ctx context.Context, s *model.Streamer) error
 	LoadChannelPointsContext(ctx context.Context, s *model.Streamer) error
 	SendMinuteWatchedEvents(ctx context.Context, streamers []*model.Streamer) error
@@ -25,6 +26,7 @@ type API interface {
 	GetFollowers(ctx context.Context, limit int, order string) ([]string, error)
 	CheckViewerIsMod(ctx context.Context, streamer *model.Streamer)
 	RefreshSpadeURL(ctx context.Context, s *model.Streamer) error // re-fetch spade URL on demand
-	GQLClient() *gql.Client      // expose GQL client for category watcher
-	AuthProvider() auth.Provider  // expose auth provider for PubSub/chat
+	ResolveLoginFromID(ctx context.Context, channelID string) (string, error)
+	GQLClient() *gql.Client                                       // expose GQL client for category watcher
+	AuthProvider() auth.Provider                                  // expose auth provider for PubSub/chat
 }

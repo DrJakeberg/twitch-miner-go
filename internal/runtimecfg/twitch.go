@@ -1,9 +1,12 @@
 package runtimecfg
 
 import (
-	"fmt"
+	"log/slog"
 	"os"
 	"strings"
+	"testing"
+
+	"github.com/Guliveer/twitch-miner-go/internal/constants"
 )
 
 const (
@@ -15,8 +18,8 @@ const (
 	envTwitchClientVersion   = "TWITCH_CLIENT_VERSION"
 )
 
-// Twitch holds Twitch runtime identifiers that must be supplied by the
-// deployment environment instead of being hardcoded in the binary.
+// Twitch holds Twitch runtime identifiers loaded from environment variables
+// with built-in defaults from constants. Environment variables take priority.
 type Twitch struct {
 	ClientIDTV      string
 	ClientIDBrowser string
@@ -36,10 +39,10 @@ func (c *Twitch) ClientIDsForGQL() []string {
 	}
 
 	candidates := []string{
-		c.ClientIDBrowser,
-		c.ClientIDMobile,
 		c.ClientIDAndroid,
 		c.ClientIDIOS,
+		c.ClientIDMobile,
+		c.ClientIDBrowser,
 		c.ClientIDTV,
 	}
 
@@ -59,47 +62,44 @@ func (c *Twitch) ClientIDsForGQL() []string {
 	return ids
 }
 
-// LoadTwitchFromEnv loads all required Twitch identifiers from environment
-// variables and returns a validation error when any value is missing.
-func LoadTwitchFromEnv() (*Twitch, error) {
-	cfg := &Twitch{
-		ClientIDTV:      strings.TrimSpace(os.Getenv(envTwitchClientIDTV)),
-		ClientIDBrowser: strings.TrimSpace(os.Getenv(envTwitchClientIDBrowser)),
-		ClientIDMobile:  strings.TrimSpace(os.Getenv(envTwitchClientIDMobile)),
-		ClientIDAndroid: strings.TrimSpace(os.Getenv(envTwitchClientIDAndroid)),
-		ClientIDIOS:     strings.TrimSpace(os.Getenv(envTwitchClientIDIOS)),
-		ClientVersion:   strings.TrimSpace(os.Getenv(envTwitchClientVersion)),
+// envOrDefault returns the trimmed environment variable value, or the fallback
+// default if the variable is not set or empty.
+func envOrDefault(envKey, fallback string) (value string, fromEnv bool) {
+	v := strings.TrimSpace(os.Getenv(envKey))
+	if v != "" {
+		return v, true
 	}
-
-	if err := cfg.Validate(); err != nil {
-		return nil, err
-	}
-
-	return cfg, nil
+	return fallback, false
 }
 
-// Validate ensures all required Twitch identifiers are present.
-func (c *Twitch) Validate() error {
-	if c == nil {
-		return fmt.Errorf("twitch runtime config is required")
-	}
+// LoadTwitchFromEnv loads Twitch identifiers from environment variables,
+// falling back to built-in defaults from constants. Logs a warning when
+// defaults are used so operators know to configure fresh values.
+func LoadTwitchFromEnv(log *slog.Logger) *Twitch {
+	var usedDefaults []string
 
-	required := map[string]string{
-		envTwitchClientIDTV:      c.ClientIDTV,
-		envTwitchClientIDBrowser: c.ClientIDBrowser,
-		envTwitchClientVersion:   c.ClientVersion,
-	}
-
-	var missing []string
-	for key, value := range required {
-		if value == "" {
-			missing = append(missing, key)
+	load := func(envKey, fallback string) string {
+		v, fromEnv := envOrDefault(envKey, fallback)
+		if !fromEnv && fallback != "" {
+			usedDefaults = append(usedDefaults, envKey)
 		}
+		return v
 	}
 
-	if len(missing) > 0 {
-		return fmt.Errorf("missing required Twitch runtime environment variables: %s", strings.Join(missing, ", "))
+	cfg := &Twitch{
+		ClientIDTV:      load(envTwitchClientIDTV, constants.ClientID),
+		ClientIDBrowser: load(envTwitchClientIDBrowser, constants.ClientIDBrowser),
+		ClientIDMobile:  load(envTwitchClientIDMobile, constants.ClientIDMobile),
+		ClientIDAndroid: load(envTwitchClientIDAndroid, constants.ClientIDAndroid),
+		ClientIDIOS:     load(envTwitchClientIDIOS, constants.ClientIDiOS),
+		ClientVersion:   load(envTwitchClientVersion, constants.ClientVersion),
 	}
 
-	return nil
+	if len(usedDefaults) > 0 && log != nil && !testing.Testing() {
+		log.Warn("Using built-in default Twitch client identifiers (may be outdated). "+
+			"Set environment variables for fresh values.",
+			"defaults_used", strings.Join(usedDefaults, ", "))
+	}
+
+	return cfg
 }

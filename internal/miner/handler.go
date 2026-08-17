@@ -41,7 +41,6 @@ func (m *Miner) handleMessage(ctx context.Context, msg *model.Message) {
 	msg.RawMessage = nil
 }
 
-
 func (m *Miner) handleCommunityPoints(ctx context.Context, msg *model.Message, streamer *model.Streamer) {
 	if msg.Data == nil {
 		return
@@ -76,7 +75,7 @@ func (m *Miner) handlePointsEarnedOrSpent(ctx context.Context, msg *model.Messag
 
 		if streamer != nil {
 			streamer.Mu.Lock()
-			streamer.UpdateHistory(reasonCode, earned, 1)
+			streamer.UpdateHistory(string(mapReasonToEvent(reasonCode)), earned, 1)
 			streamer.Mu.Unlock()
 
 			streamer.Mu.RLock()
@@ -127,7 +126,6 @@ func (m *Miner) handleClaimAvailable(ctx context.Context, msg *model.Message, st
 			"streamer", username, "error", err)
 	}
 }
-
 
 func (m *Miner) handleVideoPlayback(ctx context.Context, msg *model.Message, streamer *model.Streamer) {
 	if streamer == nil {
@@ -196,7 +194,6 @@ func (m *Miner) handleViewCount(ctx context.Context, msg *model.Message, streame
 	}
 }
 
-
 func (m *Miner) handleRaid(ctx context.Context, msg *model.Message, streamer *model.Streamer) {
 	if streamer == nil {
 		return
@@ -210,6 +207,7 @@ func (m *Miner) handleRaid(ctx context.Context, msg *model.Message, streamer *mo
 	followRaid := streamer.Settings != nil && streamer.Settings.FollowRaid
 	username := streamer.Username
 	category := streamer.ResolveCategory()
+	existingRaid := streamer.Raid
 	streamer.Mu.RUnlock()
 
 	if !followRaid {
@@ -228,6 +226,12 @@ func (m *Miner) handleRaid(ctx context.Context, msg *model.Message, streamer *mo
 		return
 	}
 
+	// Debounce: skip if we already processed this raid (PubSub sends
+	// raid_update_v2 repeatedly while the raid is active).
+	if existingRaid != nil && existingRaid.RaidID == raidID {
+		return
+	}
+
 	m.log.Event(ctx, model.EventJoinRaid,
 		"Joining raid",
 		"streamer", username,
@@ -239,6 +243,7 @@ func (m *Miner) handleRaid(ctx context.Context, msg *model.Message, streamer *mo
 		RaidID:      raidID,
 		TargetLogin: targetLogin,
 	}
+	streamer.UpdateHistory(string(model.EventJoinRaid), 0, 1)
 	streamer.Mu.Unlock()
 
 	if err := m.twitch.JoinRaid(ctx, raidID); err != nil {
@@ -246,7 +251,6 @@ func (m *Miner) handleRaid(ctx context.Context, msg *model.Message, streamer *mo
 			"streamer", username, "raid_id", raidID, "error", err)
 	}
 }
-
 
 func (m *Miner) handleCommunityMoments(ctx context.Context, msg *model.Message, streamer *model.Streamer) {
 	if streamer == nil || msg.Data == nil {
@@ -283,7 +287,6 @@ func (m *Miner) handleCommunityMoments(ctx context.Context, msg *model.Message, 
 			"streamer", username, "moment_id", momentID, "error", err)
 	}
 }
-
 
 func (m *Miner) handleCommunityGoals(_ context.Context, msg *model.Message, streamer *model.Streamer) {
 	if streamer == nil || msg.Data == nil {

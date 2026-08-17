@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git ca-certificates
 
@@ -13,12 +13,14 @@ RUN go mod download
 COPY . .
 ARG VERSION=dev
 ARG GIT_COMMIT=unknown
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN CGO_ENABLED=0 go build \
     -ldflags="-s -w -X github.com/Guliveer/twitch-miner-go/internal/version.Number=${VERSION} -X github.com/Guliveer/twitch-miner-go/internal/version.GitCommit=${GIT_COMMIT}" \
     -o /twitch-miner-go ./cmd/twitch-miner-go
 
 # Stage 2: Runtime
 FROM gcr.io/distroless/static-debian12
+
+LABEL org.opencontainers.image.description="Efficient auto drops and points claim for Twitch"
 
 COPY --from=builder /twitch-miner-go /twitch-miner-go
 # Only example configs are copied; real configs should be mounted via volume or created at runtime

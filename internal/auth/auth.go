@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,9 +16,14 @@ import (
 
 	"github.com/Guliveer/twitch-miner-go/internal/config"
 	"github.com/Guliveer/twitch-miner-go/internal/constants"
+	"github.com/Guliveer/twitch-miner-go/internal/encryption"
 	"github.com/Guliveer/twitch-miner-go/internal/logger"
 	"github.com/Guliveer/twitch-miner-go/internal/runtimecfg"
 )
+
+// ErrSkippedUnauth is returned when -skip-unauth is set and no valid credentials
+// are found for an account. The account is silently skipped without prompting.
+var ErrSkippedUnauth = errors.New("skipping unauthenticated account")
 
 // Authenticator handles Twitch login, token management, and cookie persistence.
 // It is safe for concurrent use.
@@ -38,8 +44,16 @@ type Authenticator struct {
 	httpClient *http.Client
 	runtime    *runtimecfg.Twitch
 
+	skipUnauth bool
+
 	integrityToken  string
 	integrityExpire int64
+
+	pendingCode     string
+	pendingUserCode string
+	pendingVerifyURI string
+	pendingExpiresAt int64
+	pendingMu       sync.Mutex
 }
 
 // NewAuthenticator creates a new Authenticator from the account configuration.
@@ -58,11 +72,25 @@ func NewAuthenticator(cfg *config.AccountConfig, log *logger.Logger, runtime *ru
 		log.Warn("Failed to create cookies directory", "dir", cookiesDir, "error", err)
 	}
 
+	var jar *CookieJar
+	if envKey := os.Getenv("COOKIE_ENCRYPTION_KEY"); envKey != "" {
+		key, err := encryption.ParseKey(envKey)
+		if err != nil {
+			log.Error("Invalid COOKIE_ENCRYPTION_KEY", "error", err)
+		} else {
+			jar = NewCookieJarWithEncryption(key)
+			log.Info("Cookie encryption enabled")
+		}
+	}
+	if jar == nil {
+		jar = NewCookieJar()
+	}
+
 	return &Authenticator{
 		username:      cfg.Username,
 		cfg:           cfg.Auth,
 		cookieFile:    cookieFile,
-		cookieJar:     NewCookieJar(),
+		cookieJar:     jar,
 		deviceID:      generateDeviceID(),
 		clientSession: GenerateHex(16),
 		log:           log,
@@ -71,6 +99,17 @@ func NewAuthenticator(cfg *config.AccountConfig, log *logger.Logger, runtime *ru
 			Timeout: constants.DefaultHTTPTimeout,
 		},
 	}
+}
+
+// NewForTest creates a minimal Authenticator for unit tests with a preset userID.
+func NewForTest(userID string) *Authenticator {
+	return &Authenticator{
+		userID: userID,
+	}
+}
+
+func (a *Authenticator) SetSkipUnauth(skip bool) {
+	a.skipUnauth = skip
 }
 
 // Login performs the authentication flow with the following priority:
@@ -98,6 +137,7 @@ func (a *Authenticator) Login(ctx context.Context) error {
 				if err := a.validateToken(ctx); err == nil {
 					a.log.Info("Successfully authenticated from cookies",
 						"username", a.username, "user_id", a.userID)
+					a.maybeEncryptCookieFile()
 					return nil
 				}
 				a.log.Warn("Cached token is invalid, will try refresh")
@@ -156,6 +196,10 @@ func (a *Authenticator) Login(ctx context.Context) error {
 		}
 	}
 
+	if a.skipUnauth {
+		a.log.Warn("No valid credentials found, skipping account", "account", a.username, "flag", "-skip-unauth")
+		return ErrSkippedUnauth
+	}
 	a.log.Error("No valid credentials found — starting device code login", "account", a.username)
 	if err := a.loginWithDeviceCode(ctx); err != nil {
 		return fmt.Errorf("device code login failed: %w", err)
@@ -261,6 +305,38 @@ func (a *Authenticator) ClientIDsForGQL() []string {
 	return a.runtime.ClientIDsForGQL()
 }
 
+// AndroidClientID returns the runtime-configured Android client ID.
+func (a *Authenticator) AndroidClientID() string {
+	return a.runtime.ClientIDAndroid
+}
+
+// DeviceCodeStatus returns the current pending device code state, or nil
+// if no device code flow is active.
+func (a *Authenticator) DeviceCodeStatus() *DeviceCodeStatus {
+	a.pendingMu.Lock()
+	defer a.pendingMu.Unlock()
+
+	if a.pendingCode == "" {
+		return nil
+	}
+
+	return &DeviceCodeStatus{
+		UserCode:        a.pendingUserCode,
+		VerificationURI: a.pendingVerifyURI,
+		ExpiresAt:       a.pendingExpiresAt,
+	}
+}
+
+// ClearIntegrityToken invalidates the cached integrity token so the next
+// FetchIntegrityToken call fetches a fresh one. Called by the GQL client
+// when Twitch rejects the current token with "failed integrity check".
+func (a *Authenticator) ClearIntegrityToken() {
+	a.mu.Lock()
+	a.integrityToken = ""
+	a.integrityExpire = 0
+	a.mu.Unlock()
+}
+
 // FetchIntegrityToken fetches or returns a cached integrity token from
 // https://gql.twitch.tv/integrity. The token is refreshed 5 minutes before expiry.
 func (a *Authenticator) FetchIntegrityToken(ctx context.Context) (string, error) {
@@ -337,4 +413,18 @@ func GenerateHex(numBytes int) string {
 	randomBytes := make([]byte, numBytes)
 	rand.Read(randomBytes)
 	return fmt.Sprintf("%x", randomBytes)
+}
+
+// maybeEncryptCookieFile re-saves the cookie file encrypted when the jar
+// has a key configured. Migrates plaintext files on first load after
+// enabling COOKIE_ENCRYPTION_KEY.
+func (a *Authenticator) maybeEncryptCookieFile() {
+	if !a.cookieJar.HasEncryption() {
+		return
+	}
+	if err := a.cookieJar.Save(a.cookieFile); err != nil {
+		a.log.Warn("Failed to encrypt cookie file", "file", a.cookieFile, "error", err)
+	} else {
+		a.log.Info("Cookie file encrypted", "file", a.cookieFile)
+	}
 }

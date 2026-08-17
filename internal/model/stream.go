@@ -9,37 +9,40 @@ import (
 type Stream struct {
 	BroadcastID string `json:"broadcast_id,omitempty"`
 
-	Title string `json:"title,omitempty"`
-	Game *GameInfo `json:"game,omitempty"`
-	Tags []Tag `json:"tags,omitempty"`
+	Title string    `json:"title,omitempty"`
+	Game  *GameInfo `json:"game,omitempty"`
+	Tags  []Tag     `json:"tags,omitempty"`
 
-	DropsTags bool `json:"drops_tags"`
-	Campaigns []Campaign `json:"campaigns,omitempty"`
-	CampaignIDs []string `json:"campaign_ids,omitempty"`
+	HasDropsTag bool       `json:"drops_tags"`
+	Campaigns   []Campaign `json:"campaigns,omitempty"`
+	CampaignIDs []string   `json:"campaign_ids,omitempty"`
 
 	ViewersCount int `json:"viewers_count"`
 
-	SpadeURL string `json:"spade_url,omitempty"`
-	Payload map[string]any `json:"payload,omitempty"`
+	SpadeURL string         `json:"spade_url,omitempty"`
+	Payload  map[string]any `json:"payload,omitempty"`
 
-	WatchStreakMissing bool `json:"watch_streak_missing"`
-	MinuteWatched float64 `json:"minute_watched"`
+	IsWatchStreakMissing bool    `json:"watch_streak_missing"`
+	MinuteWatched        float64 `json:"minute_watched"`
 
-	lastUpdate time.Time
+	LastMinuteCreditedAt   time.Time `json:"last_minute_credited_at,omitempty"`
+	StalledCooldownUntil   time.Time `json:"stalled_cooldown_until,omitempty"`
+
+	lastUpdate             time.Time
 	minuteWatchedTimestamp time.Time
 }
 
 // GameInfo holds game/category metadata from the Twitch API.
 type GameInfo struct {
-	ID string `json:"id"`
-	Name string `json:"name"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
-	Slug string `json:"slug,omitempty"`
+	Slug        string `json:"slug,omitempty"`
 }
 
 // Tag represents a stream tag.
 type Tag struct {
-	ID string `json:"id"`
+	ID            string `json:"id"`
 	LocalizedName string `json:"localizedName"`
 }
 
@@ -66,11 +69,11 @@ func (s *Stream) Update(broadcastID, title string, game *GameInfo, tags []Tag, v
 	}
 	s.ViewersCount = viewersCount
 
-	s.DropsTags = false
+	s.HasDropsTag = false
 	if s.Game != nil {
 		for _, tag := range s.Tags {
 			if tag.ID == dropID {
-				s.DropsTags = true
+				s.HasDropsTag = true
 				break
 			}
 		}
@@ -144,7 +147,7 @@ func (s *Stream) UpdateElapsed() time.Duration {
 
 // InitWatchStreak resets the watch streak tracking state.
 func (s *Stream) InitWatchStreak() {
-	s.WatchStreakMissing = true
+	s.IsWatchStreakMissing = true
 	s.MinuteWatched = 0
 	s.minuteWatchedTimestamp = time.Time{}
 }
@@ -157,6 +160,14 @@ func (s *Stream) UpdateMinuteWatched() {
 		s.MinuteWatched += elapsed
 	}
 	s.minuteWatchedTimestamp = now
+	s.LastMinuteCreditedAt = now
+}
+
+// IsMinuteWatchStalled returns true when the last successful minute-watched
+// credit is older than the given threshold. A zero LastMinuteCreditedAt
+// (never credited) is not considered stalled — the streamer is simply new.
+func (s *Stream) IsMinuteWatchStalled(threshold time.Duration) bool {
+	return !s.LastMinuteCreditedAt.IsZero() && time.Since(s.LastMinuteCreditedAt) > threshold
 }
 
 // String returns a human-readable representation of the stream.

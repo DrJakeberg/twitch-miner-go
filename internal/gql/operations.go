@@ -12,27 +12,27 @@ import (
 
 // ChannelPointsContext holds the parsed response from the ChannelPointsContext GQL query.
 type ChannelPointsContext struct {
-	Balance int
+	Balance           int
 	ActiveMultipliers []model.PointsMultiplier
-	AvailableClaimID string
-	CommunityGoals []*model.CommunityGoal
+	AvailableClaimID  string
+	CommunityGoals    []*model.CommunityGoal
 }
 
 // PlaybackAccessToken holds the signature and token needed for HLS manifest access.
 type PlaybackAccessToken struct {
 	Signature string `json:"signature"`
-	Value string `json:"value"`
+	Value     string `json:"value"`
 }
 
 // TopStream holds information about a stream returned by the DirectoryPage_Game query.
 type TopStream struct {
-	Username string
-	ChannelID string
-	DisplayName string
+	Username     string
+	ChannelID    string
+	DisplayName  string
 	ViewersCount int
-	GameID string
-	GameName string
-	GameSlug string
+	GameID       string
+	GameName     string
+	GameSlug     string
 }
 
 // GetChannelPointsContext fetches channel points balance, multipliers, available claims,
@@ -44,13 +44,20 @@ func (c *Client) GetChannelPointsContext(ctx context.Context, channelLogin strin
 		return nil, fmt.Errorf("ChannelPointsContext for %s: %w", channelLogin, err)
 	}
 
+	if len(data) == 0 || string(data) == "null" {
+		c.log.Debug("ChannelPointsContext returned empty data — persisted query hash may be stale",
+			"channel", channelLogin,
+			"data_len", len(data))
+		return nil, nil
+	}
+
 	var resp struct {
 		Community *struct {
 			Channel struct {
 				Self struct {
 					CommunityPoints struct {
-						Balance           int                `json:"balance"`
-						ActiveMultipliers []json.RawMessage  `json:"activeMultipliers"`
+						Balance           int               `json:"balance"`
+						ActiveMultipliers []json.RawMessage `json:"activeMultipliers"`
 						AvailableClaim    *struct {
 							ID string `json:"id"`
 						} `json:"availableClaim"`
@@ -133,8 +140,8 @@ func (c *Client) GetStreamInfo(ctx context.Context, channelLogin string) (*Strea
 				} `json:"tags"`
 			} `json:"stream"`
 			BroadcastSettings struct {
-				Title string     `json:"title"`
-				Game  *GameResp  `json:"game"`
+				Title string    `json:"title"`
+				Game  *GameResp `json:"game"`
 			} `json:"broadcastSettings"`
 		} `json:"user"`
 	}
@@ -212,6 +219,31 @@ func (c *Client) GetUserID(ctx context.Context, login string) (string, error) {
 	}
 
 	return resp.User.ID, nil
+}
+
+// GetLoginFromID fetches the Twitch login name for a given user ID.
+func (c *Client) GetLoginFromID(ctx context.Context, id string) (string, error) {
+	vars := map[string]any{"id": id}
+	data, err := c.PostGQL(ctx, constants.GQLGetLoginFromID, vars)
+	if err != nil {
+		return "", fmt.Errorf("GetLoginFromID for %s: %w", id, err)
+	}
+
+	var resp struct {
+		User *struct {
+			Login string `json:"login"`
+		} `json:"user"`
+	}
+
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return "", fmt.Errorf("parsing GetLoginFromID response: %w", err)
+	}
+
+	if resp.User == nil || resp.User.Login == "" {
+		return "", nil
+	}
+
+	return resp.User.Login, nil
 }
 
 // GetFollowedStreamers fetches the list of followed channel logins for a user.
@@ -451,15 +483,19 @@ func (c *Client) ClaimDropRewards(ctx context.Context, dropInstanceID string) (b
 		return false, fmt.Errorf("parsing ClaimDropRewards response: %w", err)
 	}
 
+	if len(resp.Errors) > 0 {
+		return false, fmt.Errorf("ClaimDropRewards GQL error: %s (dropInstanceID=%s)", resp.Errors[0].Message, dropInstanceID)
+	}
+
 	if resp.ClaimDropRewards == nil {
-		return false, nil
+		return false, fmt.Errorf("ClaimDropRewards returned nil (dropInstanceID=%s, raw=%s)", dropInstanceID, string(data))
 	}
 
 	switch resp.ClaimDropRewards.Status {
 	case "ELIGIBLE_FOR_ALL", "DROP_INSTANCE_ALREADY_CLAIMED":
 		return true, nil
 	default:
-		return false, nil
+		return false, fmt.Errorf("ClaimDropRewards unexpected status: %s", resp.ClaimDropRewards.Status)
 	}
 }
 
@@ -486,6 +522,7 @@ func (c *Client) GetPlaybackAccessToken(ctx context.Context, login string) (*Pla
 		"isVod":      false,
 		"vodID":      "",
 		"playerType": "site",
+		"platform":   "web",
 	}
 
 	data, err := c.PostGQL(ctx, constants.GQLPlaybackAccessToken, vars)
@@ -739,10 +776,7 @@ func (c *Client) GetDropCampaignDetailsBatch(ctx context.Context, campaignIDs []
 	var results []json.RawMessage
 
 	for i := 0; i < len(campaignIDs); i += batchSize {
-		end := i + batchSize
-		if end > len(campaignIDs) {
-			end = len(campaignIDs)
-		}
+		end := min(i+batchSize, len(campaignIDs))
 		chunk := campaignIDs[i:end]
 
 		ops := make([]constants.GQLOperation, len(chunk))
@@ -785,6 +819,87 @@ func (c *Client) GetDropCampaignDetailsBatch(ctx context.Context, campaignIDs []
 	}
 
 	return results, nil
+}
+
+// TeamMember holds information about a team member returned by the TeamPage query.
+type TeamMember struct {
+	UserID       string
+	Login        string
+	DisplayName  string
+	IsLive       bool
+	ViewersCount int
+	GameID       string
+	GameName     string
+	GameSlug     string
+}
+
+// GetTeamMembers fetches all members of a Twitch team.
+func (c *Client) GetTeamMembers(ctx context.Context, teamName string) ([]TeamMember, error) {
+	vars := map[string]any{"name": teamName}
+	data, err := c.PostGQL(ctx, constants.GQLTeamPage, vars)
+	if err != nil {
+		return nil, fmt.Errorf("GetTeamMembers for %s: %w", teamName, err)
+	}
+
+	if len(data) == 0 {
+		return nil, fmt.Errorf("GetTeamMembers for %s: empty response from API", teamName)
+	}
+
+	var resp struct {
+		Team *struct {
+			Members struct {
+				Edges []struct {
+					Node *struct {
+						ID          string `json:"id"`
+						Login       string `json:"login"`
+						DisplayName string `json:"displayName"`
+						Stream      *struct {
+							ID           string `json:"id"`
+							ViewersCount int    `json:"viewersCount"`
+							Game         *struct {
+								ID          string `json:"id"`
+								Name        string `json:"name"`
+								DisplayName string `json:"displayName"`
+								Slug        string `json:"slug"`
+							} `json:"game"`
+						} `json:"stream"`
+					} `json:"node"`
+				} `json:"edges"`
+			} `json:"members"`
+		} `json:"team"`
+	}
+
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("parsing GetTeamMembers response: %w", err)
+	}
+
+	if resp.Team == nil {
+		return nil, fmt.Errorf("team %s not found", teamName)
+	}
+
+	var members []TeamMember
+	for _, edge := range resp.Team.Members.Edges {
+		if edge.Node == nil {
+			continue
+		}
+		member := TeamMember{
+			UserID:      edge.Node.ID,
+			Login:       edge.Node.Login,
+			DisplayName: edge.Node.DisplayName,
+		}
+		if edge.Node.Stream != nil {
+			member.IsLive = true
+			member.ViewersCount = edge.Node.Stream.ViewersCount
+			if edge.Node.Stream.Game != nil {
+				member.GameID = edge.Node.Stream.Game.ID
+				member.GameName = edge.Node.Stream.Game.DisplayName
+				member.GameSlug = edge.Node.Stream.Game.Slug
+			}
+		}
+		members = append(members, member)
+	}
+
+	return members, nil
 }
 
 // GetGameSlug fetches the slug for a game by its ID using a raw GQL query.

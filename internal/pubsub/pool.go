@@ -26,15 +26,15 @@ type MessageHandler interface {
 type Pool struct {
 	mu sync.Mutex
 
-	conns []*Connection
-	auth auth.Provider
-	log *logger.Logger
+	conns   []*Connection
+	auth    auth.Provider
+	log     *logger.Logger
 	handler MessageHandler
 
 	merged chan *model.Message
 
 	maxTopics int
-	maxConns int
+	maxConns  int
 }
 
 // NewPool creates a new PubSub connection pool.
@@ -52,10 +52,12 @@ func NewPool(authProvider auth.Provider, log *logger.Logger, handler MessageHand
 
 // Subscribe distributes topics across connections, creating new connections
 // as needed. Each connection holds up to MaxTopicsPerConn topics.
+// When the connection limit is reached, remaining topics are skipped with a warning.
 func (p *Pool) Subscribe(ctx context.Context, topics []*model.PubSubTopic) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	var dropped int
 	for _, topic := range topics {
 		if !topic.IsUserTopic() && topic.Streamer != nil && topic.Streamer.ChannelID == "" {
 			p.log.Warn("Skipping subscription for topic with empty channel_id",
@@ -66,8 +68,18 @@ func (p *Pool) Subscribe(ctx context.Context, topics []*model.PubSubTopic) error
 		}
 
 		if err := p.subscribeSingle(ctx, topic); err != nil {
-			return err
+			dropped++
+			continue
 		}
+	}
+
+	if dropped > 0 {
+		capacity := p.maxConns * p.maxTopics
+		p.log.Warn("PubSub connection limit reached, some topics were not subscribed",
+			"dropped", dropped,
+			"subscribed", p.topicCountLocked(),
+			"max_capacity", capacity,
+		)
 	}
 	return nil
 }
@@ -146,7 +158,6 @@ func (p *Pool) Run(ctx context.Context) error {
 
 	p.mu.Lock()
 	for _, conn := range p.conns {
-		conn := conn // capture for closure
 		p.startForwarder(ctx, conn)
 		g.Go(func() error {
 			return p.runConnection(ctx, conn)
@@ -179,7 +190,10 @@ func (p *Pool) ConnectionCount() int {
 func (p *Pool) TotalTopicCount() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.topicCountLocked()
+}
 
+func (p *Pool) topicCountLocked() int {
 	total := 0
 	for _, conn := range p.conns {
 		total += conn.TopicCount()
@@ -281,7 +295,7 @@ func (p *Pool) reconnect(ctx context.Context, oldConn *Connection) (*Connection,
 
 // startForwarder launches a goroutine that reads from a connection's messages
 // channel and forwards them to the pool's merged fan-in channel.
-// The goroutine exits when the connection's messages channel is closed or the
+// The goroutine exits when the messages channel is closed or the context is cancelled.
 func (p *Pool) startForwarder(ctx context.Context, conn *Connection) {
 	utils.SafeGo(func() {
 		for {

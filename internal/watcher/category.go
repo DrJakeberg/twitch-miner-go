@@ -97,33 +97,24 @@ func (cw *CategoryWatcher) Run(
 	removeStreamer func(string, string),
 	getTrackedStreamers func() []*model.Streamer,
 ) error {
-	cw.log.Info("👁️ CategoryWatcher started",
-		"categories", len(cw.categories),
-		"poll_interval", cw.pollInterval,
-	)
-
-	cw.evaluate(ctx, addStreamer, removeStreamer, getTrackedStreamers)
-
-	ticker := time.NewTicker(cw.pollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			cw.log.Info("👁️ CategoryWatcher stopping")
+	return pollLoop(ctx, cw.log, cw.pollInterval,
+		"👁️ CategoryWatcher started",
+		"👁️ CategoryWatcher stopping",
+		[]any{"categories", len(cw.categories), "poll_interval", cw.pollInterval},
+		func(ctx context.Context) {
+			cw.evaluate(ctx, addStreamer, removeStreamer, getTrackedStreamers)
+		},
+		func() {
 			cw.mu.Lock()
+			defer cw.mu.Unlock()
 			for slug, username := range cw.categoryStreamers {
 				if username != "" {
 					removeStreamer(username, "category_watcher_shutdown")
 					cw.categoryStreamers[slug] = ""
 				}
 			}
-			cw.mu.Unlock()
-			return ctx.Err()
-		case <-ticker.C:
-			cw.evaluate(ctx, addStreamer, removeStreamer, getTrackedStreamers)
-		}
-	}
+		},
+	)
 }
 
 // evaluate checks all configured categories and adds/removes streamers as needed.
@@ -163,6 +154,7 @@ func (cw *CategoryWatcher) evaluate(
 				cw.categoryStreamers[cat.Slug] = ""
 			}
 			cw.mu.Unlock()
+
 			continue
 		}
 
@@ -286,9 +278,10 @@ func (cw *CategoryWatcher) evaluate(
 				betCopy.FilterCondition = &fcCopy
 			}
 			defaults.Bet = &betCopy
-			}
-			defaults.FollowRaid = false
-			streamer.Settings = &defaults
+		}
+		defaults.FollowRaid = false
+		defaults.DropsOnly = dropsOnly
+		streamer.Settings = &defaults
 
 		cw.mu.Lock()
 		cw.categoryStreamers[cat.Slug] = candidate.Username

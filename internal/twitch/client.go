@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -83,6 +84,34 @@ type Client struct {
 	Log       *logger.Logger
 	cfg       *config.AccountConfig
 	spadeURLs *spadeCache
+
+	// claimedDrops tracks drop instance IDs that have already been attempted
+	// to prevent notification spam across sync cycles.
+	claimedDrops sync.Map
+
+	// seenClaimable tracks drops that have already been reported as claimable
+	// so we only emit DROP_CLAIM_AVAILABLE once per drop lifetime.
+	seenClaimable sync.Map
+
+	// dropSeenCount tracks consecutive inventory polls in which a drop ID has
+	// been present. Used by vanish detection.
+	dropSeenCount sync.Map
+
+	// dropVanished tracks drop IDs that have been reported as vanished.
+	dropVanished sync.Map
+
+	// dropSynthMissingCount tracks consecutive polls in which a drop ID was
+	// seen in campaign details but not in inventory. Used by synth detection.
+	dropSynthMissingCount sync.Map
+
+	// dropSynthetic tracks drop IDs that have been reported as synthetic.
+	dropSynthetic sync.Map
+
+	// dropMilestoneNotified tracks which quarter milestones have been reported
+	// for a given drop instance. Keys are "dropInstanceID:milestone" strings.
+	dropMilestoneNotified sync.Map
+
+	startupDropsLogged bool
 }
 
 // NewClient creates a new high-level Twitch Client from account configuration.
@@ -102,6 +131,10 @@ func NewClient(cfg *config.AccountConfig, log *logger.Logger, runtime *runtimecf
 // Login performs the authentication flow.
 func (c *Client) Login(ctx context.Context) error {
 	return c.Auth.Login(ctx)
+}
+
+func (c *Client) SetSkipUnauth(skip bool) {
+	c.Auth.SetSkipUnauth(skip)
 }
 
 // CheckStreamerOnline checks if a streamer is online and updates their state.
@@ -133,10 +166,37 @@ func (c *Client) CheckStreamerOnline(ctx context.Context, streamer *model.Stream
 		}
 
 		if err := c.updateStream(ctx, streamer); err != nil {
-			streamer.Mu.Lock()
-			streamer.SetOffline()
-			streamer.Mu.Unlock()
-			return nil
+			if isStaleUsernameError(err) && streamer.ChannelID != "" {
+				streamer.Mu.RLock()
+				oldLogin := streamer.Username
+				streamer.Mu.RUnlock()
+
+				newLogin, resolveErr := c.ResolveLoginFromID(ctx, streamer.ChannelID)
+				if resolveErr == nil && newLogin != "" {
+					streamer.Mu.Lock()
+					streamer.Username = newLogin
+					streamer.StreamerURL = fmt.Sprintf("https://www.twitch.tv/%s", newLogin)
+					streamer.Mu.Unlock()
+					c.Log.Info("Streamer renamed", "old", oldLogin, "new", newLogin)
+
+				if retryErr := c.updateStream(ctx, streamer); retryErr != nil {
+					streamer.Mu.Lock()
+					streamer.SetOffline()
+					streamer.Mu.Unlock()
+					return nil //nolint:nilerr // streamer already set offline; caller only needs to know check completed
+				}
+				} else {
+					streamer.Mu.Lock()
+					streamer.SetOffline()
+					streamer.Mu.Unlock()
+					return nil
+				}
+			} else {
+				streamer.Mu.Lock()
+				streamer.SetOffline()
+				streamer.Mu.Unlock()
+				return nil //nolint:nilerr // streamer set offline; error logged upstream
+			}
 		}
 
 		streamer.Mu.Lock()
@@ -338,6 +398,10 @@ func (c *Client) LoadChannelPointsContext(ctx context.Context, streamer *model.S
 		return fmt.Errorf("loading channel points context for %s: %w", username, err)
 	}
 
+	if cpc == nil {
+		return nil
+	}
+
 	streamer.Mu.Lock()
 	streamer.ChannelPoints = cpc.Balance
 	streamer.ActiveMultipliers = cpc.ActiveMultipliers
@@ -452,12 +516,7 @@ func (c *Client) contributeToCommunityGoals(ctx context.Context, streamer *model
 func (c *Client) ClaimChannelPoints(ctx context.Context, streamer *model.Streamer, claimID string) error {
 	streamer.Mu.RLock()
 	channelID := streamer.ChannelID
-	username := streamer.Username
 	streamer.Mu.RUnlock()
-
-	c.Log.Info("Claiming channel points bonus",
-		"streamer", username,
-		"claim_id", claimID)
 
 	return c.GQL.ClaimCommunityPoints(ctx, claimID, channelID)
 }
@@ -515,4 +574,19 @@ func (c *Client) GQLClient() *gql.Client {
 // This satisfies the twitch.API interface.
 func (c *Client) AuthProvider() auth.Provider {
 	return c.Auth
+}
+
+// isStaleUsernameError reports whether err indicates the streamer's username
+// is no longer valid on Twitch (e.g. after a rename).
+func isStaleUsernameError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "missing user data") || strings.Contains(s, " not found")
+}
+
+// ResolveLoginFromID looks up the current Twitch login for the given channel ID.
+func (c *Client) ResolveLoginFromID(ctx context.Context, channelID string) (string, error) {
+	return c.GQL.GetLoginFromID(ctx, channelID)
 }

@@ -4,20 +4,17 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/Guliveer/twitch-miner-go/internal/constants"
 	"github.com/Guliveer/twitch-miner-go/internal/logger"
 	"github.com/Guliveer/twitch-miner-go/internal/model"
+	"github.com/Guliveer/twitch-miner-go/internal/store"
 	"github.com/Guliveer/twitch-miner-go/internal/utils"
 )
 
@@ -32,6 +29,10 @@ type NotifyTestFunc func(ctx context.Context) []error
 // DebugSnapshotFunc returns a debug snapshot that can be serialized as JSON.
 type DebugSnapshotFunc func() any
 
+// AuthStatusFunc returns the pending device code auth status for a given miner
+// username, or nil if the miner is not found or has no pending flow.
+type AuthStatusFunc func(username string) any
+
 // DashboardAuth holds credentials for HTTP Basic Auth on the dashboard.
 // The password is stored as a SHA-256 hex digest for constant-time comparison.
 type DashboardAuth struct {
@@ -41,26 +42,30 @@ type DashboardAuth struct {
 
 // AnalyticsServer serves the analytics dashboard and JSON API endpoints.
 type AnalyticsServer struct {
-	addr string
-	log  *logger.Logger
-	srv  *http.Server
-	auth *DashboardAuth
+	addr   string
+	log    *logger.Logger
+	srv    *http.Server
+	auth   *DashboardAuth
+	apiKey string
 
 	mu             sync.RWMutex
 	streamers      []*model.Streamer
 	streamerFunc   StreamerFunc
 	notifyTestFunc NotifyTestFunc
 	debugFunc      DebugSnapshotFunc
+	authStatusFunc AuthStatusFunc
+	accountStore   store.Store
 }
 
 // NewAnalyticsServer creates a new AnalyticsServer bound to the given address.
-// If auth is non-nil, all endpoints (except /health and /static) require
-// HTTP Basic Auth with the configured username and SHA-256 hashed password.
-func NewAnalyticsServer(addr string, log *logger.Logger, auth *DashboardAuth) *AnalyticsServer {
+// If auth or apiKey is provided, all endpoints (except /health and /static)
+// require either HTTP Basic Auth (browser users) or an X-API-Key header (machine clients).
+func NewAnalyticsServer(addr string, log *logger.Logger, auth *DashboardAuth, apiKey string) *AnalyticsServer {
 	s := &AnalyticsServer{
-		addr: addr,
-		log:  log,
-		auth: auth,
+		addr:   addr,
+		log:    log,
+		auth:   auth,
+		apiKey: apiKey,
 	}
 
 	mux := http.NewServeMux()
@@ -76,9 +81,21 @@ func NewAnalyticsServer(addr string, log *logger.Logger, auth *DashboardAuth) *A
 	mux.HandleFunc("GET /api/debug", s.handleDebug)
 
 	mux.HandleFunc("POST /api/test-notification", s.handleTestNotification)
+
+	mux.HandleFunc("GET /api/auth-status/{username}", s.handleAuthStatus)
+
+	mux.HandleFunc("GET /api/accounts", s.handleListAccounts)
+	mux.HandleFunc("POST /api/accounts", s.handleCreateAccount)
+	mux.HandleFunc("GET /api/accounts/{username}", s.handleGetAccount)
+	mux.HandleFunc("PUT /api/accounts/{username}", s.handleUpdateAccount)
+	mux.HandleFunc("DELETE /api/accounts/{username}", s.handleDeleteAccount)
+
+	mux.HandleFunc("GET /api/config/schema", s.handleConfigSchema)
+	mux.HandleFunc("POST /api/config/validate", s.handleConfigValidate)
+	mux.HandleFunc("POST /api/config/generate", s.handleConfigGenerate)
+
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
 
-	// pprof endpoints for remote memory profiling
 	mux.HandleFunc("GET /debug/pprof/", pprof.Index)
 	mux.HandleFunc("GET /debug/pprof/cmdline", pprof.Cmdline)
 	mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
@@ -89,9 +106,13 @@ func NewAnalyticsServer(addr string, log *logger.Logger, auth *DashboardAuth) *A
 	mux.Handle("GET /debug/pprof/allocs", pprof.Handler("allocs"))
 
 	var handler http.Handler = mux
-	if auth != nil {
-		handler = withBasicAuth(auth, mux)
+	if auth != nil || apiKey != "" {
+		handler = withAuth(auth, apiKey, mux)
 	}
+
+	limiter := newRateLimiter(100, time.Minute)
+	handler = withRateLimit(limiter, handler)
+	handler = withRequestID(handler)
 
 	s.srv = &http.Server{
 		Addr:              addr,
@@ -127,6 +148,14 @@ func (s *AnalyticsServer) SetNotifyTestFunc(fn NotifyTestFunc) {
 func (s *AnalyticsServer) SetDebugFunc(fn DebugSnapshotFunc) {
 	s.mu.Lock()
 	s.debugFunc = fn
+	s.mu.Unlock()
+}
+
+// SetAuthStatusFunc sets a function that returns the device-code auth status
+// for a given username. Thread-safe.
+func (s *AnalyticsServer) SetAuthStatusFunc(fn AuthStatusFunc) {
+	s.mu.Lock()
+	s.authStatusFunc = fn
 	s.mu.Unlock()
 }
 
@@ -179,62 +208,4 @@ func (s *AnalyticsServer) Run(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	}
-}
-
-// withBasicAuth enforces HTTP Basic Auth with SHA-256 password comparison.
-// Health endpoint and static assets are excluded.
-func withBasicAuth(creds *DashboardAuth, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Always allow health checks and static assets without auth.
-		if r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/static/") {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		user, pass, ok := r.BasicAuth()
-		if !ok || !checkCredentials(user, pass, creds) {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Twitch Miner Dashboard"`)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-// checkCredentials verifies username and password against stored credentials.
-// The password is hashed with SHA-256 and compared in constant time.
-func checkCredentials(user, pass string, creds *DashboardAuth) bool {
-	userMatch := subtle.ConstantTimeCompare([]byte(user), []byte(creds.Username)) == 1
-
-	hash := sha256.Sum256([]byte(pass))
-	passHash := hex.EncodeToString(hash[:])
-	passMatch := subtle.ConstantTimeCompare([]byte(passHash), []byte(creds.PasswordHash)) == 1
-
-	return userMatch && passMatch
-}
-
-func withLogging(log *logger.Logger, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-		next.ServeHTTP(rw, r)
-		log.Debug("HTTP request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", rw.statusCode,
-			"duration", time.Since(start).String(),
-		)
-	})
-}
-
-type responseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-// WriteHeader captures the status code before writing it.
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
 }

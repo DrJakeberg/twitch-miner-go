@@ -1,0 +1,41 @@
+# Line endings
+# Normalize to LF in the repo, check out with native endings on each platform.
+* text=auto eol=lf
+
+# Binary files
+# Prevent Git from mangling binary content with line-ending conversions.
+*.exe   binary
+*.dll   binary
+*.so    binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+
+# Go
+# Union merge avoids conflicts when multiple branches add dependencies.
+# diff=golang shows function names in diff hunk headers instead of line numbers.
+go.sum merge=union
+*.go   diff=golang
+
+# Linguist
+# Keep Go as the displayed language in GitHub's language stats.
+graphify-out/**    linguist-generated=true
+.github/wiki/**    linguist-documentation=true
+*.html -linguist-detectable
+*.css  -linguist-detectable
+*.js   -linguist-detectable
+
+# Export
+# Exclude tooling and IDE config from git archive / GitHub source tarballs.
+.agents/          export-ignore
+.claude/          export-ignore
+.cursor/          export-ignore
+.github/          export-ignore
+.idea/            export-ignore
+graphify-out/     export-ignore
+scripts/githooks/ export-ignore

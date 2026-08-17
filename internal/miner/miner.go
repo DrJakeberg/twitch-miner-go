@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/Guliveer/twitch-miner-go/internal/auth"
 	"github.com/Guliveer/twitch-miner-go/internal/chat"
 	"github.com/Guliveer/twitch-miner-go/internal/config"
 	"github.com/Guliveer/twitch-miner-go/internal/constants"
@@ -21,6 +22,7 @@ import (
 	"github.com/Guliveer/twitch-miner-go/internal/pubsub"
 	"github.com/Guliveer/twitch-miner-go/internal/runtimecfg"
 	"github.com/Guliveer/twitch-miner-go/internal/twitch"
+	"github.com/Guliveer/twitch-miner-go/internal/version"
 	"github.com/Guliveer/twitch-miner-go/internal/watcher"
 )
 
@@ -33,11 +35,15 @@ type Miner struct {
 	twitch twitch.API
 	pubsub *pubsub.Pool
 	chat   *chat.Manager
-	notify *notify.Dispatcher
+	notify            *notify.Dispatcher
+	suppressLifecycle bool
+	skipUnauth        bool
+	oneTimeEvent      model.Event
 
 	running atomic.Bool
 
-	catWatcher *watcher.CategoryWatcher
+	catWatcher  *watcher.CategoryWatcher
+	teamWatcher *watcher.TeamWatcher
 
 	streamers   []*model.Streamer
 	streamersMu sync.RWMutex
@@ -81,6 +87,23 @@ func (m *Miner) NotifyDispatcher() *notify.Dispatcher {
 	return m.notify
 }
 
+// SetSuppressLifecycleNotify controls whether MINER_STARTED, MINER_STOPPED,
+// and MINER_CRASHED notifications are sent. Must be called before Run().
+func (m *Miner) SetSuppressLifecycleNotify(suppress bool) {
+	m.suppressLifecycle = suppress
+}
+
+func (m *Miner) SetSkipUnauth(skip bool) {
+	m.skipUnauth = skip
+}
+
+// SetOneTimeEvent sets an additional event to dispatch once immediately after
+// MINER_STARTED. Intended for DB-driven events like ACCOUNT_CONFIG_RELOADED.
+// Must be called before Run().
+func (m *Miner) SetOneTimeEvent(event model.Event) {
+	m.oneTimeEvent = event
+}
+
 // IsRunning reports whether the miner is currently running its main loop.
 func (m *Miner) IsRunning() bool {
 	return m.running.Load()
@@ -89,6 +112,17 @@ func (m *Miner) IsRunning() bool {
 // Username returns the account username for this miner.
 func (m *Miner) Username() string {
 	return m.cfg.Username
+}
+
+// DeviceCodeStatus returns the current pending device code flow state, or nil.
+// Returns nil if the twitch client hasn't been created yet or if no device code
+// flow is active.
+func (m *Miner) DeviceCodeStatus() *auth.DeviceCodeStatus {
+	client, ok := m.twitch.(*twitch.Client)
+	if !ok {
+		return nil
+	}
+	return client.Auth.DeviceCodeStatus()
 }
 
 // Run is the main entry point for the miner. It performs the full lifecycle
@@ -114,6 +148,7 @@ func (m *Miner) Run(ctx context.Context) error {
 		return fmt.Errorf("creating twitch client: %w", err)
 	}
 	m.twitch = tc
+	m.twitch.SetSkipUnauth(m.skipUnauth)
 
 	if err := m.twitch.Login(ctx); err != nil {
 		return fmt.Errorf("login failed for %s: %w", m.cfg.Username, err)
@@ -134,6 +169,7 @@ func (m *Miner) Run(ctx context.Context) error {
 	}
 
 	m.notify = notify.NewDispatcher(m.cfg.Notifications, m.log)
+	m.notify.SuppressLifecycle(m.suppressLifecycle)
 	m.log.SetNotifyFunc(m.notify.NotifyFunc(m.cfg.Username))
 
 	m.pubsub = pubsub.NewPool(m.twitch.AuthProvider(), m.log, m)
@@ -146,6 +182,7 @@ func (m *Miner) Run(ctx context.Context) error {
 	m.chat = chat.NewManager(m.cfg.Username, m.twitch.AuthProvider().AuthToken(), m.log)
 	m.joinInitialChats()
 
+	parentCtx := ctx
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
@@ -156,13 +193,18 @@ func (m *Miner) Run(ctx context.Context) error {
 		return m.chat.Run(ctx)
 	})
 
+	startupInitDone := &sync.WaitGroup{}
+	startupInitDone.Add(2)
+
 	g.Go(func() error {
+		defer startupInitDone.Done()
 		m.loadAllChannelPointsContext(ctx)
 		m.twitch.GQLClient().SetNormalMode()
 		return nil
 	})
 
 	g.Go(func() error {
+		defer startupInitDone.Done()
 		m.checkAllStreamersOnline(ctx)
 		return nil
 	})
@@ -194,6 +236,20 @@ func (m *Miner) Run(ctx context.Context) error {
 		})
 	}
 
+	if m.cfg.TeamWatcher.Enabled && len(m.cfg.TeamWatcher.Teams) > 0 {
+		defaults := m.getStreamerDefaults()
+		m.teamWatcher = watcher.NewTeamWatcher(
+			m.cfg.TeamWatcher,
+			m.twitch.GQLClient(),
+			m.log,
+			m.cfg.Blacklist,
+			defaults,
+		)
+		g.Go(func() error {
+			return m.teamWatcher.Run(ctx, m.addStreamer, m.removeStreamerWithReason, m.getStreamers)
+		})
+	}
+
 	g.Go(func() error {
 		return m.runMonitorLoop(ctx)
 	})
@@ -207,6 +263,14 @@ func (m *Miner) Run(ctx context.Context) error {
 		"startup_duration", time.Since(startTime).Round(time.Millisecond),
 	)
 
+	m.notify.DispatchSync(ctx, model.EventMinerStarted, m.cfg.Username,
+		fmt.Sprintf("🚀 Miner started — %s", version.String()))
+
+	if m.oneTimeEvent != "" {
+		m.notify.DispatchSync(ctx, m.oneTimeEvent, m.cfg.Username,
+			oneTimeEventMessage(m.oneTimeEvent, m.cfg.Username))
+	}
+
 	err = g.Wait()
 
 	m.pendingTimersMu.Lock()
@@ -216,9 +280,17 @@ func (m *Miner) Run(ctx context.Context) error {
 	}
 	m.pendingTimersMu.Unlock()
 
-	// Flush any pending batched notifications before exit.
+	// Send lifecycle notification and flush pending batched notifications.
 	if m.notify != nil {
-		m.notify.Stop(context.Background())
+		bgCtx := context.Background()
+		if err != nil && parentCtx.Err() == nil {
+			m.notify.DispatchSync(bgCtx, model.EventMinerCrashed, m.cfg.Username,
+				fmt.Sprintf("💥 Miner crashed — %s\nError: %v", version.String(), err))
+		} else {
+			m.notify.DispatchSync(bgCtx, model.EventMinerStopped, m.cfg.Username,
+				fmt.Sprintf("🛑 Miner stopped — %s", version.String()))
+		}
+		m.notify.Stop(bgCtx)
 	}
 
 	return err
@@ -414,4 +486,13 @@ func (m *Miner) joinInitialChats() {
 // It delegates to the handler logic in handler.go.
 func (m *Miner) HandlePubSubMessage(ctx context.Context, msg *model.Message) {
 	m.handleMessage(ctx, msg)
+}
+
+func oneTimeEventMessage(event model.Event, username string) string {
+	switch event {
+	case model.EventAccountConfigReloaded:
+		return fmt.Sprintf("🔄 Account config reloaded from DB — %s", username)
+	default:
+		return fmt.Sprintf("%s — %s", string(event), username)
+	}
 }

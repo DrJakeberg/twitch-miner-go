@@ -1,5 +1,6 @@
 services:
   twitch-miner-go:
+    # Override image in .env with TWITCH_MINER_IMAGE variable
     image: ${TWITCH_MINER_IMAGE:-ghcr.io/drjakeberg/twitch-miner-go:latest}
     restart: unless-stopped
     ports:
@@ -9,6 +10,8 @@ services:
     environment:
       DATA_DIR: /data
       PORT: 8080
+      # Required: Set TWITCH_CLIENT_ID_TV, TWITCH_CLIENT_ID_BROWSER, TWITCH_CLIENT_VERSION in .env
+      # Optional: Set COOKIE_ENCRYPTION_KEY in .env to encrypt cookies at rest (./tools/gen-cookie-key.sh)
     volumes:
       - ./configs:/configs:ro
       - twitch-miner-data:/data

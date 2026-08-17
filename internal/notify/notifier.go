@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Guliveer/twitch-miner-go/internal/config"
@@ -34,8 +36,17 @@ type notifierEntry struct {
 // Dispatcher manages multiple notifiers and dispatches notifications to all
 // enabled notifiers that match the event.
 type Dispatcher struct {
-	entries []notifierEntry
-	log     *logger.Logger
+	entries            []notifierEntry
+	log                *logger.Logger
+	suppressLifecycle  atomic.Bool
+}
+
+// SuppressLifecycle controls whether MINER_STARTED, MINER_STOPPED, and
+// MINER_CRASHED notifications are sent. When set to true they are silently
+// dropped. Intended for use during startup/shutdown to avoid notification
+// spam when many miners start or stop at once.
+func (d *Dispatcher) SuppressLifecycle(suppress bool) {
+	d.suppressLifecycle.Store(suppress)
 }
 
 // NewDispatcher creates a Dispatcher from the notification configuration.
@@ -163,6 +174,39 @@ func (d *Dispatcher) Stop(ctx context.Context) {
 	}
 }
 
+// DispatchSync sends a notification synchronously to all enabled notifiers
+// matching the event, bypassing the batcher. It waits for all sends to complete.
+// Use for lifecycle events (start/stop/crash) where delivery must be guaranteed
+// before the dispatcher is shut down.
+func (d *Dispatcher) DispatchSync(ctx context.Context, event model.Event, title, message string) {
+	if d.suppressLifecycle.Load() {
+		switch event {
+		case model.EventMinerStarted, model.EventMinerStopped, model.EventMinerCrashed:
+			return
+		}
+	}
+	var wg sync.WaitGroup
+	for _, e := range d.entries {
+		if !e.notifier.IsEnabled() || !e.notifier.ShouldNotify(event) {
+			continue
+		}
+		wg.Add(1)
+		go func(notifier Notifier) {
+			defer wg.Done()
+			sendCtx, cancel := context.WithTimeout(ctx, defaultHTTPTimeout)
+			defer cancel()
+			if err := notifier.Send(sendCtx, event, title, message); err != nil {
+				d.log.Warn("notification send failed",
+					"provider", notifier.Name(),
+					"event", string(event),
+					"error", err,
+				)
+			}
+		}(e.notifier)
+	}
+	wg.Wait()
+}
+
 // NotifyFunc returns a logger.NotifyFunc that dispatches notifications via this Dispatcher.
 // The title is constructed dynamically from the account name and metadata map:
 //   - "accountName | 📺 streamer" when a streamer context exists
@@ -221,13 +265,4 @@ func parseEvents(names []string) []model.Event {
 		}
 	}
 	return events
-}
-
-func containsEvent(events []model.Event, event model.Event) bool {
-	for _, ev := range events {
-		if ev == event {
-			return true
-		}
-	}
-	return false
 }

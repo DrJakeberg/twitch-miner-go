@@ -48,7 +48,7 @@ func (m *Miner) addStreamer(ctx context.Context, s *model.Streamer) {
 			"streamer", s.Username, "error", err)
 	}
 
-	if !s.IsCategoryWatched {
+	if !s.IsCategoryWatched && !s.IsTeamWatched {
 		m.log.Info("➕ Added",
 			"streamer", s.Username,
 			"channel_id", s.ChannelID,
@@ -132,9 +132,9 @@ func (m *Miner) resolveStreamers(ctx context.Context) error {
 				existing[u] = true
 			}
 			for _, followerLogin := range followers {
-					followerLower := strings.ToLower(followerLogin)
-					if !existing[followerLower] && !blacklist[followerLower] {
-						usernames = append(usernames, followerLower)
+				followerLower := strings.ToLower(followerLogin)
+				if !existing[followerLower] && !blacklist[followerLower] {
+					usernames = append(usernames, followerLower)
 				}
 			}
 		}
@@ -205,13 +205,13 @@ func (m *Miner) resolveStreamers(ctx context.Context) error {
 	for _, r := range collected {
 		sortedResults[r.index] = r.streamer
 	}
-	for i := 0; i < len(usernames); i++ {
+	for i := range usernames {
 		if s, ok := sortedResults[i]; ok {
 			resolved = append(resolved, s)
 		}
 	}
 
-	if len(resolved) == 0 && !m.cfg.CategoryWatcher.Enabled {
+	if len(resolved) == 0 && !m.cfg.CategoryWatcher.Enabled && !m.cfg.TeamWatcher.Enabled {
 		return fmt.Errorf("no streamers could be resolved for account %s", m.cfg.Username)
 	}
 

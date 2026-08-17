@@ -14,7 +14,7 @@ import (
 // gifted subscriptions, and logging connection events.
 type Handler struct {
 	username string
-	log *logger.Logger
+	log      *logger.Logger
 }
 
 // NewHandler creates a new chat message Handler.

@@ -26,13 +26,13 @@ const (
 )
 
 var topicNames = map[PubSubTopicType]string{
-	PubSubTopicVideoPlayback:        "video-playback-by-id",
-	PubSubTopicCommunityPoints:      "community-points-user-v1",
-	PubSubTopicPredictions:          "predictions-channel-v1",
-	PubSubTopicPredictionsUser:      "predictions-user-v1",
-	PubSubTopicRaid:                 "raid",
-	PubSubTopicCommunityMoments:     "community-moments-channel-v1",
-	PubSubTopicCommunityGoals:       "community-points-channel-v1",
+	PubSubTopicVideoPlayback:    "video-playback-by-id",
+	PubSubTopicCommunityPoints:  "community-points-user-v1",
+	PubSubTopicPredictions:      "predictions-channel-v1",
+	PubSubTopicPredictionsUser:  "predictions-user-v1",
+	PubSubTopicRaid:             "raid",
+	PubSubTopicCommunityMoments: "community-moments-channel-v1",
+	PubSubTopicCommunityGoals:   "community-points-channel-v1",
 }
 
 // String returns the Twitch topic string prefix for this topic type.
@@ -46,8 +46,8 @@ func (t PubSubTopicType) String() string {
 // PubSubTopic represents a PubSub subscription topic.
 type PubSubTopic struct {
 	TopicType PubSubTopicType `json:"topic_type"`
-	UserID string `json:"user_id,omitempty"`
-	Streamer *Streamer `json:"-"`
+	UserID    string          `json:"user_id,omitempty"`
+	Streamer  *Streamer       `json:"-"`
 }
 
 // NewUserTopic creates a PubSubTopic scoped to the authenticated user.

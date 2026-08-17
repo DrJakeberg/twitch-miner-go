@@ -21,7 +21,7 @@ func (m *Miner) runMinuteWatcher(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 			streamers := m.getStreamers()
-			toWatch := twitch.SelectStreamersToWatch(streamers, m.priorities, m.cfg.MaxWatchStreams)
+			toWatch := twitch.SelectStreamersToWatch(streamers, m.priorities, *m.cfg.MaxWatchStreams)
 
 			m.logWatchingChanges(toWatch)
 
@@ -38,6 +38,7 @@ func (m *Miner) runMinuteWatcher(ctx context.Context) error {
 }
 
 // logWatchingChanges compares the current set of watched streamers with the
+// previous set and logs which streamers started or stopped being watched.
 func (m *Miner) logWatchingChanges(toWatch []*model.Streamer) {
 	currentSet := make(map[string]bool, len(toWatch))
 	for _, s := range toWatch {
@@ -65,46 +66,44 @@ func (m *Miner) logWatchingChanges(toWatch []*model.Streamer) {
 }
 
 func (m *Miner) runCampaignSync(ctx context.Context) error {
-	hasDrops := false
-	for _, s := range m.getStreamers() {
-		s.Mu.RLock()
-		if s.Settings != nil && s.Settings.ClaimDrops {
-			hasDrops = true
-		}
-		s.Mu.RUnlock()
-		if hasDrops {
-			break
-		}
-	}
-	if !hasDrops {
-		<-ctx.Done()
-		return ctx.Err()
-	}
-
-	streamers := m.getStreamers()
-	if err := m.twitch.SyncCampaigns(ctx, streamers); err != nil {
-		m.log.Warn("Initial campaign sync failed", "error", err)
-	}
-	// Hint GC to reclaim transient campaign sync allocations
-	runtime.GC()
-
 	ticker := time.NewTicker(constants.DefaultCampaignSyncInterval)
 	defer ticker.Stop()
+
+	// Keep the loop alive even when no streamer can claim drops yet: streamers
+	// discovered later (e.g. by the category watcher) need campaign sync on the
+	// next tick, otherwise drops-only watching never starts.
+	sync := func() {
+		streamers := m.getStreamers()
+		hasDrops := false
+		for _, s := range streamers {
+			s.Mu.RLock()
+			hasDrops = s.Settings != nil && s.Settings.ClaimDrops
+			s.Mu.RUnlock()
+			if hasDrops {
+				break
+			}
+		}
+		if !hasDrops {
+			return
+		}
+		if err := m.twitch.SyncCampaigns(ctx, streamers); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			m.log.Warn("Campaign sync failed", "error", err)
+		}
+		// Hint GC to reclaim transient campaign sync allocations
+		runtime.GC()
+	}
+
+	sync()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			streamers := m.getStreamers()
-			if err := m.twitch.SyncCampaigns(ctx, streamers); err != nil {
-				if ctx.Err() != nil {
-					return ctx.Err()
-				}
-				m.log.Warn("Campaign sync failed", "error", err)
-			}
-			// Hint GC to reclaim transient campaign sync allocations
-			runtime.GC()
+			sync()
 		}
 	}
 }

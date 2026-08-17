@@ -17,14 +17,14 @@ import (
 type Manager struct {
 	mu sync.Mutex
 
-	client *twitch.Client
+	client  *twitch.Client
 	handler *Handler
 
-	username string
+	username  string
 	authToken string
 
 	channels map[string]bool
-	running bool
+	running  bool
 
 	log *logger.Logger
 }
