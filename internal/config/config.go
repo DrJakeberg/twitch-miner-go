@@ -242,12 +242,9 @@ func AccountConfigFromJSON(username, jsonBlob string) (*AccountConfig, error) {
 	return &cfg, nil
 }
 
-// Validate checks the configuration for common errors and contradictory settings.
-func Validate(cfg *AccountConfig) error {
-	if cfg.Username == "" {
-		return fmt.Errorf("username is required")
-	}
-
+// validateWatchSettings checks the knobs governing how many streams are
+// watched and how long a channel holds a watch-streak slot.
+func validateWatchSettings(cfg *AccountConfig) error {
 	if cfg.MaxWatchStreams != nil && *cfg.MaxWatchStreams < 0 {
 		return fmt.Errorf("account %s: max_watch_streams must be non-negative (0 = unlimited)", cfg.Username)
 	}
@@ -258,6 +255,19 @@ func Validate(cfg *AccountConfig) error {
 
 	if cfg.WatchStreakMinutes != nil && *cfg.WatchStreakMinutes <= 0 {
 		return fmt.Errorf("account %s: watch_streak_minutes must be greater than zero", cfg.Username)
+	}
+
+	return nil
+}
+
+// Validate checks the configuration for common errors and contradictory settings.
+func Validate(cfg *AccountConfig) error {
+	if cfg.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+
+	if err := validateWatchSettings(cfg); err != nil {
+		return err
 	}
 
 	if len(cfg.Streamers) == 0 && !cfg.Followers.Enabled && !cfg.CategoryWatcher.Enabled && !cfg.TeamWatcher.Enabled {
