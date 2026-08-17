@@ -124,11 +124,14 @@ func (m *Miner) handlePredictionCreated(
 		return
 	}
 
+	// The countdown is a field rather than part of the message so notification
+	// bodies can lay it out as its own line.
 	m.log.Event(ctx, model.EventBetStart,
-		fmt.Sprintf("Placing bet in %.0fs", secondsUntilClose),
+		"Placing bet",
 		"streamer", username,
 		"category", category,
-		"title", event.Title)
+		"title", event.Title,
+		"in_seconds", fmt.Sprintf("%.0f", secondsUntilClose))
 
 	m.schedulePredictionAttempt(ctx, streamer, event, secondsUntilClose)
 }
@@ -256,6 +259,7 @@ func (m *Miner) handlePredictionResult(ctx context.Context, event *model.EventPr
 	}
 	eventTitle := event.Title
 	resultString := event.Result.ResultString
+	stakedAmount := event.Bet.Decision.Amount
 	event.Mu.Unlock()
 
 	m.pendingTimersMu.Lock()
@@ -280,6 +284,7 @@ func (m *Miner) handlePredictionResult(ctx context.Context, event *model.EventPr
 		"category", streamerCategory,
 		"title", eventTitle,
 		"choice", choiceStr,
+		"amount", stakedAmount,
 		"result", resultString)
 
 	if streamer != nil {
