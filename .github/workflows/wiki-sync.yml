@@ -17,21 +17,26 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Clone wiki repository
+        id: clone
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if ! git clone \
             "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.wiki.git" \
             wiki_repo 2>&1; then
-            echo "::error::Wiki repository not found."
-            echo "::error::Go to Settings → General → Features, enable Wikis, then create the first page manually at https://github.com/${{ github.repository }}/wiki — GitHub must initialize the wiki git repo before this workflow can push to it."
-            exit 1
+            # A repository without a wiki is a normal state for a fork, not a
+            # build failure. Skip the sync instead of failing every push.
+            echo "::notice::Wiki repository not initialised — skipping wiki sync."
+            echo "::notice::To enable it: Settings → General → Features → Wikis, then create the first page at https://github.com/${{ github.repository }}/wiki so GitHub initialises the wiki git repo."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Copy wiki pages
+        if: steps.clone.outputs.skipped != 'true'
         run: cp .github/wiki/*.md wiki_repo/
 
       - name: Commit and push
+        if: steps.clone.outputs.skipped != 'true'
         run: |
           cd wiki_repo
           git config user.name "github-actions[bot]"
