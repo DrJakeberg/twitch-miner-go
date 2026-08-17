@@ -168,8 +168,22 @@ features:
 
 max_watch_streams: 2
 
+# While any live channel still owes a watch streak, the watch set narrows to
+# this many streams so the streak actually lands (Twitch only credits about two
+# concurrent streams; a wider set lets Twitch pick and no streak sticks).
+# Each channel holds its slot until the streak arrives or watch_streak_minutes
+# elapse, then the next pending channel takes over. Set to 0 to disable.
+streak_watch_streams: 2
+watch_streak_minutes: 10
+
+# Channels the PREFERRED priority picks first, in this order.
+preferred_streamers:
+  - jimpanse
+  - insym
+
 priority:
   - STREAK
+  - PREFERRED
   - DROPS
   - ORDER
 

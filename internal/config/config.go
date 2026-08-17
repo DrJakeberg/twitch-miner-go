@@ -126,6 +126,16 @@ func applyDefaults(cfg *AccountConfig) {
 		cfg.MaxWatchStreams = &v
 	}
 
+	if cfg.StreakWatchStreams == nil {
+		v := constants.StreakWatchStreams
+		cfg.StreakWatchStreams = &v
+	}
+
+	if cfg.WatchStreakMinutes == nil {
+		v := constants.WatchStreakMinutes
+		cfg.WatchStreakMinutes = &v
+	}
+
 	if len(cfg.Priority) == 0 {
 		cfg.Priority = []string{"STREAK", "DROPS", "ORDER"}
 	}
@@ -240,6 +250,14 @@ func Validate(cfg *AccountConfig) error {
 
 	if cfg.MaxWatchStreams != nil && *cfg.MaxWatchStreams < 0 {
 		return fmt.Errorf("account %s: max_watch_streams must be non-negative (0 = unlimited)", cfg.Username)
+	}
+
+	if cfg.StreakWatchStreams != nil && *cfg.StreakWatchStreams < 0 {
+		return fmt.Errorf("account %s: streak_watch_streams must be non-negative (0 = disabled)", cfg.Username)
+	}
+
+	if cfg.WatchStreakMinutes != nil && *cfg.WatchStreakMinutes <= 0 {
+		return fmt.Errorf("account %s: watch_streak_minutes must be greater than zero", cfg.Username)
 	}
 
 	if len(cfg.Streamers) == 0 && !cfg.Followers.Enabled && !cfg.CategoryWatcher.Enabled && !cfg.TeamWatcher.Enabled {

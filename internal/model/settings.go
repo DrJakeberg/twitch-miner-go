@@ -102,6 +102,9 @@ const (
 	PriorityEndingSoonest
 	// PriorityLowAvailabilityFirst prioritizes campaigns with the lowest availability.
 	PriorityLowAvailabilityFirst
+	// PriorityPreferred prioritizes the channels listed in preferred_streamers,
+	// in the order they are listed.
+	PriorityPreferred
 )
 
 // String returns the string representation of a Priority.
@@ -123,6 +126,8 @@ func (p Priority) String() string {
 		return "ENDING_SOONEST"
 	case PriorityLowAvailabilityFirst:
 		return "LOW_AVAILABILITY_FIRST"
+	case PriorityPreferred:
+		return "PREFERRED"
 	default:
 		return "ORDER"
 	}
@@ -147,6 +152,8 @@ func ParsePriority(s string) Priority {
 		return PriorityEndingSoonest
 	case "LOW_AVAILABILITY_FIRST":
 		return PriorityLowAvailabilityFirst
+	case "PREFERRED":
+		return PriorityPreferred
 	default:
 		return PriorityOrder
 	}

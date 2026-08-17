@@ -58,6 +58,9 @@ type Miner struct {
 
 	lastWatching   map[string]bool
 	lastWatchingMu sync.Mutex
+	// lastStreakHarvest is nil until the first selection pass, so the initial
+	// mode is announced once rather than silently assumed.
+	lastStreakHarvest *bool
 
 	runtime *runtimecfg.Twitch
 }
