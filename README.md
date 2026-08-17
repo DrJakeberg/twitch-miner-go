@@ -306,7 +306,7 @@ Use the `configs/` directory for per-account behavior such as watched streamers,
 
 For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN_GULIVEER_` and the auth token variable is `TWITCH_AUTH_TOKEN_GULIVEER_`.
 
-> 📡 **Telemetry notice:** This project collects anonymous usage data by default — instance ID, version, OS, architecture, and running account count — to track adoption and prioritize development. No personal data, channel names, IP addresses, or identifying information is sent. **To disable, set `TELEMETRY_AGREE=false` in your environment.**  
+> 📡 **Telemetry notice:** Upstream collects anonymous usage data by default — instance ID, version, OS, architecture, and running account count. **This fork inverts that: telemetry is off unless you set `TELEMETRY_AGREE=true`**, because it runs as a single self-hosted LAN-only instance. No personal data, channel names, IP addresses, or identifying information is sent even when enabled.  
 
 > The instance ID is a random UUID v4 generated on first run and persisted in `DATA_DIR/.instance_id` — the same instance keeps the same ID across restarts. When running in Docker or on Fly.io, ensure `DATA_DIR` is a mounted/persistent volume so the ID survives container rebuilds.  
 
@@ -337,7 +337,7 @@ For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN
 | `DB_DSN`                    | PostgreSQL connection string (required when `DB_ENABLED=true`)                                | _(unset)_        |
 | `DB_POLL_INTERVAL`          | How often the DB Poller syncs when no `NOTIFY` is received (e.g. `30s`, `2m`)                 | `30s`            |
 | `FILE_POLL_INTERVAL`        | How often the file watcher checks `configs/` for YAML changes (file mode only)                | `5s`             |
-| `TELEMETRY_AGREE`           | Set to `false` to disable anonymous telemetry heartbeats (enabled by default)                 | `true`           |
+| `TELEMETRY_AGREE`           | Set to `true` to opt in to anonymous telemetry heartbeats (disabled by default in this fork)  | `false`          |
 | `TELEMETRY_URL`             | Override the compiled-in telemetry server URL (forks running their own server)                | _(compiled-in)_  |
 | `HEARTBEAT_API_KEY`         | API key for the telemetry server heartbeat endpoint (`X-API-Key` header)                      | _(none)_         |
 | `TELEMETRY_INTERVAL`        | How often to send heartbeats (e.g. `30m`, `1h`, `2h`)                                         | `10m`            |

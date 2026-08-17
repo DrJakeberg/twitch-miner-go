@@ -214,10 +214,10 @@ func main() {
 			return count
 		})
 		utils.SafeGo(func() { sender.Run(ctx, initialSync) })
-		rootLog.Info("📡 Anonymous telemetry enabled — sending instance_id, version, os, arch, running account count. To disable, set TELEMETRY_AGREE=false")
+		rootLog.Info("📡 Anonymous telemetry enabled — sending instance_id, version, os, arch, running account count. To disable, unset TELEMETRY_AGREE")
 	} else {
 		rootLog.Info("📡 Telemetry disabled",
-			"help", "Set TELEMETRY_AGREE=false explicitly, or omit it to enable default telemetry",
+			"help", "Set TELEMETRY_AGREE=true to opt in",
 		)
 	}
 

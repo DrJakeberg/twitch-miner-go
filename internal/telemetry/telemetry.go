@@ -1,7 +1,8 @@
 // Package telemetry sends periodic heartbeats to a telemetry server to track
 // active instances, versions, and platforms.
 //
-// Telemetry is enabled by default. Set TELEMETRY_AGREE=false to opt out.
+// In this fork telemetry is disabled by default; set TELEMETRY_AGREE=true to
+// opt in. (Upstream ships it the other way round, as opt-out.)
 // The telemetry URL is compiled into the binary and can be overridden via
 // TELEMETRY_URL env var (useful for forks running their own server).
 //
@@ -62,10 +63,13 @@ type heartbeatPayload struct {
 }
 
 // LoadConfigFromEnv reads heartbeat configuration from environment variables.
-// Telemetry is enabled by default unless TELEMETRY_AGREE=false is set.
+// It returns (nil, nil) unless TELEMETRY_AGREE=true opts the instance in.
 // The default telemetry URL is compiled into the binary; override via TELEMETRY_URL.
 func LoadConfigFromEnv(log *slog.Logger) (*Config, error) {
-	if os.Getenv(envTelemetryAgree) == "false" {
+	// Upstream treats telemetry as opt-out. This fork is a single self-hosted
+	// LAN-only instance, so it is opt-in: nothing leaves the network unless
+	// TELEMETRY_AGREE=true is set deliberately.
+	if !strings.EqualFold(strings.TrimSpace(os.Getenv(envTelemetryAgree)), "true") {
 		return nil, nil
 	}
 
