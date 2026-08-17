@@ -221,6 +221,10 @@ func (m *Miner) Run(ctx context.Context) error {
 		return m.runContextRefresh(ctx)
 	})
 
+	g.Go(func() error {
+		return m.runPredictionSweeper(ctx)
+	})
+
 	if m.cfg.CategoryWatcher.Enabled && len(m.cfg.CategoryWatcher.Categories) > 0 {
 		defaults := m.getStreamerDefaults()
 		m.catWatcher = watcher.NewCategoryWatcher(
