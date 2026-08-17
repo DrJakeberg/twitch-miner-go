@@ -68,6 +68,13 @@ func (m *Miner) runMinuteWatcher(ctx context.Context) error {
 // pending streaks on a narrow set and running at full width, so the shrunken
 // channel list is never a mystery in the log.
 func (m *Miner) logWatchModeChange(set twitch.WatchSet) {
+	// Nobody online yet says nothing about the mode. Reporting it here would
+	// announce a spurious "widened to 0" on every gap in coverage, and would
+	// consume the transition that the first real selection should announce.
+	if len(set.Streamers) == 0 {
+		return
+	}
+
 	m.lastWatchingMu.Lock()
 	changed := m.lastStreakHarvest == nil || *m.lastStreakHarvest != set.StreakHarvest
 	harvest := set.StreakHarvest
