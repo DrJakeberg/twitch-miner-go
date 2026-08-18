@@ -59,9 +59,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
+      # QEMU is only needed for cross-architecture builds; the image is amd64
+      # only, so it is intentionally not set up here.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -113,7 +112,11 @@ jobs:
           file: ./Dockerfile
           # push: always push on tag events; respect dry-run for manual/call triggers
           push: ${{ steps.norm.outputs.dry_run != 'true' }}
-          platforms: linux/amd64,linux/arm64
+          # amd64 only: both the deployment host and the build host are x86_64,
+          # so the QEMU-emulated arm64 leg was build time nobody consumed.
+          # Re-add linux/arm64 here (and the QEMU setup step above) if the image
+          # ever needs to run on ARM.
+          platforms: linux/amd64
           provenance: true
           sbom: true
           annotations: |
