@@ -303,16 +303,20 @@ func setupAnalyticsServer(addr string, rootLog *logger.Logger, mgr *managedminer
 	passwordHash := os.Getenv("DASHBOARD_PASSWORD_SHA256")
 	dashboardAPIKey := os.Getenv("DASHBOARD_API_KEY")
 
-	// Half-configured Basic Auth used to be ignored, leaving the dashboard open
-	// while the operator believed it was protected. Refuse to start instead.
-	if user == "" && passwordHash != "" {
-		rootLog.Error("DASHBOARD_PASSWORD_SHA256 is set but DASHBOARD_USER is empty — dashboard auth would be silently disabled")
-		os.Exit(1)
-	}
-	if user != "" && passwordHash == "" {
-		rootLog.Error("DASHBOARD_USER is set but DASHBOARD_PASSWORD_SHA256 is empty — dashboard auth would be silently disabled",
-			"hint", "generate the hash with ./tools/gen-dashboard-auth.sh")
-		os.Exit(1)
+	// An API key alone already protects every route, so a half-filled Basic Auth
+	// pair is harmless next to it. Without one, only a hash without a username
+	// actually leaves the dashboard open: the server skips its auth wrapper when
+	// neither credentials nor a key are configured. A username without a hash is
+	// the opposite failure — nothing can ever authenticate — so it only warns.
+	if dashboardAPIKey == "" {
+		if user == "" && passwordHash != "" {
+			rootLog.Error("DASHBOARD_PASSWORD_SHA256 is set but DASHBOARD_USER is empty — the dashboard would be served with no authentication at all")
+			os.Exit(1)
+		}
+		if user != "" && passwordHash == "" {
+			rootLog.Warn("DASHBOARD_USER is set but DASHBOARD_PASSWORD_SHA256 is empty — every dashboard request will be rejected",
+				"hint", "generate the hash with ./tools/gen-dashboard-auth.sh")
+		}
 	}
 
 	if user != "" {
