@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Guliveer/twitch-miner-go/internal/encryption"
 	"github.com/Guliveer/twitch-miner-go/internal/logger"
 	"github.com/Guliveer/twitch-miner-go/internal/managedminer"
 	"github.com/Guliveer/twitch-miner-go/internal/miner"
@@ -134,6 +135,17 @@ func main() {
 		playStartupAnimation(colored)
 	}
 	rootLog.Info("Starting twitch-miner-go", "version", version.String())
+
+	// Validate before any account is constructed: an unparseable key used to be
+	// logged per account and then downgraded to a plaintext cookie jar, so Twitch
+	// tokens were stored in cleartext while the operator believed otherwise.
+	if envKey := os.Getenv("COOKIE_ENCRYPTION_KEY"); envKey != "" {
+		if _, err := encryption.ParseKey(envKey); err != nil {
+			rootLog.Error("Invalid COOKIE_ENCRYPTION_KEY — refusing to start with cookies unencrypted",
+				"error", err, "hint", "generate a key with ./tools/gen-cookie-key.sh")
+			os.Exit(1)
+		}
+	}
 
 	twitchRuntime := runtimecfg.LoadTwitchFromEnv(rootLog.Logger)
 
