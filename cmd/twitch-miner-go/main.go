@@ -287,13 +287,28 @@ func resolvePort(flag string) string {
 
 func setupAnalyticsServer(addr string, rootLog *logger.Logger, mgr *managedminer.Manager, accountStore store.Store) *server.AnalyticsServer {
 	var dashboardAuth *server.DashboardAuth
-	if user := os.Getenv("DASHBOARD_USER"); user != "" {
+	user := os.Getenv("DASHBOARD_USER")
+	passwordHash := os.Getenv("DASHBOARD_PASSWORD_SHA256")
+	dashboardAPIKey := os.Getenv("DASHBOARD_API_KEY")
+
+	// Half-configured Basic Auth used to be ignored, leaving the dashboard open
+	// while the operator believed it was protected. Refuse to start instead.
+	if user == "" && passwordHash != "" {
+		rootLog.Error("DASHBOARD_PASSWORD_SHA256 is set but DASHBOARD_USER is empty — dashboard auth would be silently disabled")
+		os.Exit(1)
+	}
+	if user != "" && passwordHash == "" {
+		rootLog.Error("DASHBOARD_USER is set but DASHBOARD_PASSWORD_SHA256 is empty — dashboard auth would be silently disabled",
+			"hint", "generate the hash with ./tools/gen-dashboard-auth.sh")
+		os.Exit(1)
+	}
+
+	if user != "" {
 		dashboardAuth = &server.DashboardAuth{
 			Username:     user,
-			PasswordHash: os.Getenv("DASHBOARD_PASSWORD_SHA256"),
+			PasswordHash: passwordHash,
 		}
 	}
-	dashboardAPIKey := os.Getenv("DASHBOARD_API_KEY")
 	srv := server.NewAnalyticsServer(addr, rootLog, dashboardAuth, dashboardAPIKey)
 
 	srv.SetStreamerFunc(func() []*model.Streamer {

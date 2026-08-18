@@ -100,17 +100,27 @@ func NewAnalyticsServer(addr string, log *logger.Logger, auth *DashboardAuth, ap
 
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
 
-	mux.HandleFunc("GET /debug/pprof/", pprof.Index)
-	mux.HandleFunc("GET /debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("GET /debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("GET /debug/pprof/trace", pprof.Trace)
-	mux.Handle("GET /debug/pprof/heap", pprof.Handler("heap"))
-	mux.Handle("GET /debug/pprof/goroutine", pprof.Handler("goroutine"))
-	mux.Handle("GET /debug/pprof/allocs", pprof.Handler("allocs"))
+	// Heap and goroutine dumps expose live Twitch auth tokens held in process
+	// memory, so the profiling endpoints only exist once the server is actually
+	// protected. Registering them unconditionally leaked those tokens to anyone
+	// who could reach the published port.
+	authConfigured := auth != nil || apiKey != ""
+	if authConfigured {
+		mux.HandleFunc("GET /debug/pprof/", pprof.Index)
+		mux.HandleFunc("GET /debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("GET /debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("GET /debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("GET /debug/pprof/trace", pprof.Trace)
+		mux.Handle("GET /debug/pprof/heap", pprof.Handler("heap"))
+		mux.Handle("GET /debug/pprof/goroutine", pprof.Handler("goroutine"))
+		mux.Handle("GET /debug/pprof/allocs", pprof.Handler("allocs"))
+	} else {
+		log.Warn("Dashboard auth is not configured — profiling endpoints disabled and all endpoints are public",
+			"hint", "set DASHBOARD_USER + DASHBOARD_PASSWORD_SHA256, or DASHBOARD_API_KEY")
+	}
 
 	var handler http.Handler = mux
-	if auth != nil || apiKey != "" {
+	if authConfigured {
 		handler = withAuth(auth, apiKey, mux)
 	}
 

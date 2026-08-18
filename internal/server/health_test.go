@@ -68,3 +68,32 @@ func TestHealthOKWhenMinerCountUnknown(t *testing.T) {
 		t.Fatalf("expected no miners key, got %q", body["miners"])
 	}
 }
+
+func TestPprofNotRegisteredWithoutAuth(t *testing.T) {
+	s := NewAnalyticsServer(":0", newTestLogger(t), nil, "")
+
+	rec := httptest.NewRecorder()
+	s.srv.Handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/debug/pprof/heap", nil))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected pprof to be absent without auth, got %d", rec.Code)
+	}
+}
+
+func TestPprofRequiresAuthWhenRegistered(t *testing.T) {
+	s := NewAnalyticsServer(":0", newTestLogger(t), nil, "secret-key")
+
+	rec := httptest.NewRecorder()
+	s.srv.Handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/debug/pprof/heap", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without the API key, got %d", rec.Code)
+	}
+
+	authed := httptest.NewRequest(http.MethodGet, "/debug/pprof/heap", nil)
+	authed.Header.Set("X-API-Key", "secret-key")
+	rec = httptest.NewRecorder()
+	s.srv.Handler.ServeHTTP(rec, authed)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 with the API key, got %d", rec.Code)
+	}
+}
