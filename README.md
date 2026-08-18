@@ -173,6 +173,10 @@ max_watch_streams: 2
 # concurrent streams; a wider set lets Twitch pick and no streak sticks).
 # Each channel holds its slot until the streak arrives or watch_streak_minutes
 # elapse, then the next pending channel takes over. Set to 0 to disable.
+#
+# Collected streaks are persisted to {DATA_DIR}/streaks/{account}.json, keyed by
+# broadcast ID, so a restart does not spend slot time chasing streaks Twitch has
+# already paid out. A channel that starts a new broadcast is chased again.
 streak_watch_streams: 2
 watch_streak_minutes: 10
 
