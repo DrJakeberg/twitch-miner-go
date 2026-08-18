@@ -5,6 +5,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -70,6 +71,11 @@ func LoadAccountConfig(path string) (*AccountConfig, error) {
 	return &cfg, nil
 }
 
+// ErrNoUsableAccounts reports that a config directory yielded no account the
+// miner may run. Callers use it to tell an operator misconfiguration apart from
+// a transient load failure, which must not tear down running miners.
+var ErrNoUsableAccounts = errors.New("no usable account configs")
+
 // LoadAllAccountConfigs loads all .yaml/.yml files from the given directory.
 // Each file is expected to contain a single AccountConfig.
 // Only files ending in .yaml or .yml are loaded; everything else (including
@@ -82,6 +88,7 @@ func LoadAllAccountConfigs(dir string) ([]*AccountConfig, error) {
 	}
 
 	var configs []*AccountConfig
+	var skippedOwner int
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -98,6 +105,7 @@ func LoadAllAccountConfigs(dir string) ([]*AccountConfig, error) {
 		}
 
 		if isOwnerAccount(cfg.Username) && os.Getenv("RUN_OWNER_ACCOUNTS") != "true" {
+			skippedOwner++
 			continue
 		}
 
@@ -105,7 +113,11 @@ func LoadAllAccountConfigs(dir string) ([]*AccountConfig, error) {
 	}
 
 	if len(configs) == 0 {
-		return nil, fmt.Errorf("no account config files found in %s", dir)
+		if skippedOwner > 0 {
+			return nil, fmt.Errorf("%w: all %d config(s) in %s belong to owner accounts; set RUN_OWNER_ACCOUNTS=true to run them, or mount your own configs",
+				ErrNoUsableAccounts, skippedOwner, dir)
+		}
+		return nil, fmt.Errorf("%w: no .yaml/.yml account config files in %s", ErrNoUsableAccounts, dir)
 	}
 
 	return configs, nil

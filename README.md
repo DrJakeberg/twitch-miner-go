@@ -339,7 +339,7 @@ For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN
 | `LOG_NO_TIME`               | Set to `true` to omit timestamps in console logs (avoids duplication when the platform adds timestamps, e.g. Fly.io) | `false`          |
 | `SKIP_UNAUTH`               | Set to `true` to skip accounts with no valid credentials instead of prompting for device code login | `false`          |
 | `NO_BANNER`                 | Set to `true` to suppress the startup banner animation                                        | `false`          |
-| `LOG_DIR`                   | Enable file logging; directory for `.log` files named with startup timestamp                  | _(disabled)_     |
+| `LOG_DIR`                   | Enable file logging; directory for `.log` files named with startup timestamp. In Docker use a path under the `/data` volume (e.g. `/data/logs`) — a relative path lands in the container layer and is lost on redeploy. Files are not rotated. | _(disabled)_     |
 | `PORT`                      | HTTP server port for health/analytics                                                         | `8080`           |
 | `DATA_DIR`                  | Persistent data directory (cookies, state)                                                    | `.`              |
 | `TWITCH_CLIENT_ID_TV`       | Twitch TV client ID (falls back to built-in default if unset; override recommended)           | built-in default |
@@ -719,7 +719,7 @@ docker compose up -d
 The included [`docker-compose.yml`](docker-compose.yml) uses the published GHCR image by default:
 
 ```text
-ghcr.io/guliveer/twitch-miner-go:latest
+ghcr.io/drjakeberg/twitch-miner-go:latest
 ```
 
 Set `TWITCH_MINER_IMAGE` in `.env` if you want to pin a version or use a different registry/tag.
@@ -739,9 +739,9 @@ This repository publishes Docker images to GHCR with GitHub Actions.
 
 Example image references:
 
-- `ghcr.io/guliveer/twitch-miner-go:latest`
-- `ghcr.io/guliveer/twitch-miner-go:1.2.3`
-- `ghcr.io/guliveer/twitch-miner-go:sha-abcdef1`
+- `ghcr.io/drjakeberg/twitch-miner-go:latest`
+- `ghcr.io/drjakeberg/twitch-miner-go:1.2.3`
+- `ghcr.io/drjakeberg/twitch-miner-go:sha-abcdef1`
 
 ## 1.10. Linux Service (systemd / OpenRC)
 
