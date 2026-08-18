@@ -719,7 +719,7 @@ docker compose up -d
 The included [`docker-compose.yml`](docker-compose.yml) uses the published GHCR image by default:
 
 ```text
-ghcr.io/guliveer/twitch-miner-go:latest
+ghcr.io/drjakeberg/twitch-miner-go:latest
 ```
 
 Set `TWITCH_MINER_IMAGE` in `.env` if you want to pin a version or use a different registry/tag.
@@ -739,9 +739,9 @@ This repository publishes Docker images to GHCR with GitHub Actions.
 
 Example image references:
 
-- `ghcr.io/guliveer/twitch-miner-go:latest`
-- `ghcr.io/guliveer/twitch-miner-go:1.2.3`
-- `ghcr.io/guliveer/twitch-miner-go:sha-abcdef1`
+- `ghcr.io/drjakeberg/twitch-miner-go:latest`
+- `ghcr.io/drjakeberg/twitch-miner-go:1.2.3`
+- `ghcr.io/drjakeberg/twitch-miner-go:sha-abcdef1`
 
 ## 1.10. Linux Service (systemd / OpenRC)
 

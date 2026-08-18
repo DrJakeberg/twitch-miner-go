@@ -170,7 +170,7 @@ The `docker-compose.yml` uses the published GHCR image by default:
 ```yaml
 services:
   twitch-miner-go:
-    image: ${TWITCH_MINER_IMAGE:-ghcr.io/guliveer/twitch-miner-go:latest}
+    image: ${TWITCH_MINER_IMAGE:-ghcr.io/drjakeberg/twitch-miner-go:latest}
 ```
 
 #### Image Versions
@@ -179,13 +179,13 @@ Set `TWITCH_MINER_IMAGE` in `.env` to pin a specific version:
 
 ```bash
 # Use latest (rolling)
-TWITCH_MINER_IMAGE=ghcr.io/guliveer/twitch-miner-go:latest
+TWITCH_MINER_IMAGE=ghcr.io/drjakeberg/twitch-miner-go:latest
 
 # Use specific version
-TWITCH_MINER_IMAGE=ghcr.io/guliveer/twitch-miner-go:1.6.0
+TWITCH_MINER_IMAGE=ghcr.io/drjakeberg/twitch-miner-go:1.6.0
 
 # Use commit SHA
-TWITCH_MINER_IMAGE=ghcr.io/guliveer/twitch-miner-go:sha-abc1234
+TWITCH_MINER_IMAGE=ghcr.io/drjakeberg/twitch-miner-go:sha-abc1234
 ```
 
 #### Volume Mounts
@@ -218,6 +218,50 @@ docker compose up -d
 # Clean up old images
 docker image prune -f
 ```
+
+---
+
+## Portainer
+
+Portainer deploys the same `docker-compose.yml`, but two of its behaviours differ
+from a plain `docker compose up` and both used to break the stack.
+
+### Environment variables
+
+Portainer never creates a file named `.env`. The web editor writes the variables
+you type into its own `stack.env` and passes it as `--env-file`, and a repository
+stack clones no `.env` because it is gitignored. `--env-file` only feeds `${...}`
+interpolation — **it does not put variables into the container**.
+
+The compose file therefore declares `env_file` as optional and forwards every
+value the app reads through `environment:`. Variables you add in Portainer's UI
+reach the container only if they are listed there. Per-account secrets have
+dynamic names (`TWITCH_AUTH_TOKEN_<USERNAME>`, `MATRIX_ROOM_ID_<USERNAME>`), so
+add those to the `environment:` block yourself.
+
+### Config directory
+
+`./configs` is resolved by the Docker daemon on the host, not inside Portainer.
+For a stack it resolves to `/data/compose/<stackID>/configs`, which Docker
+silently creates — empty and root-owned — when it does not exist. The container
+then starts with no account configs at all.
+
+Set `CONFIG_DIR` to an absolute host path instead:
+
+```bash
+CONFIG_DIR=/srv/twitch-miner/configs
+```
+
+### Noticing a broken deploy
+
+A container that loaded no usable account config reports `503` on `/health` with
+`"status": "degraded"` and `"miners": "0"`, so the healthcheck fails and Portainer
+marks the container **unhealthy**. It also logs a warning naming the directory it
+looked in.
+
+Note that `restart: unless-stopped` does **not** restart unhealthy containers —
+this state stays visible until you fix the configuration. Point an external
+monitor at `/health` if you want to be alerted actively.
 
 ---
 
@@ -335,8 +379,14 @@ The repository includes modular GitHub Actions workflows:
 | Workflow | Trigger | Purpose | Auto-runs |
 |----------|---------|---------|-----------|
 | **CI** ([ci.yml](.github/workflows/ci.yml)) | Push, PR | Test, lint, version bump | Always |
-| **Docker Publish** ([docker-publish.yml](.github/workflows/docker-publish.yml)) | Push to main, tags | Build and push to GHCR | When enabled |
-| **Fly.io Deploy** ([fly-deploy.yml](.github/workflows/fly-deploy.yml)) | Push to main, tags | Deploy to Fly.io | When `FLY_API_TOKEN` exists |
+| **Docker Publish** ([docker-publish.yml](.github/workflows/docker-publish.yml)) | Called by CI after a version bump; manual dispatch | Build and push to GHCR | Only when the release job bumped the version |
+| **Fly.io Deploy** ([fly-deploy.yml](.github/workflows/fly-deploy.yml)) | Push to main, tags | Deploy to Fly.io | Not wired up in this fork (self-hosted via Portainer) |
+
+> `docker-publish.yml` has no push-to-`main` trigger of its own. It runs as a
+> `workflow_call` from CI and only when the release job actually bumped the
+> version, so a push whose commits produce no bump publishes nothing. The
+> `:latest` tag is only moved from `main` or a `v*` tag — a manual dispatch from
+> a feature branch builds and pushes SHA tags but leaves `:latest` alone.
 
 ### Enabling Workflows
 
@@ -346,7 +396,7 @@ The repository includes modular GitHub Actions workflows:
 
 1. Go to repository Settings → Actions → General
 2. Enable "Read and write permissions" for `GITHUB_TOKEN`
-3. Workflow will run on next push to `main`
+3. Workflow will run on the next push to `main` that bumps the version
 
 No additional configuration needed!
 
