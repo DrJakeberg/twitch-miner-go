@@ -4,17 +4,41 @@ services:
     image: ${TWITCH_MINER_IMAGE:-ghcr.io/drjakeberg/twitch-miner-go:latest}
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${MINER_BIND_ADDR:-0.0.0.0}:${MINER_HOST_PORT:-8080}:8080"
+    # Optional so the stack also deploys where no .env exists next to the compose
+    # file (Portainer web-editor and git stacks never create one).
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       DATA_DIR: /data
       PORT: 8080
-      # Required: Set TWITCH_CLIENT_ID_TV, TWITCH_CLIENT_ID_BROWSER, TWITCH_CLIENT_VERSION in .env
-      # Optional: Set COOKIE_ENCRYPTION_KEY in .env to encrypt cookies at rest (./tools/gen-cookie-key.sh)
+      # Portainer passes its stack variables as --env-file, which only feeds
+      # ${...} interpolation and never reaches the container, so every value the
+      # app reads has to be forwarded explicitly here.
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      TWITCH_CLIENT_ID_TV: ${TWITCH_CLIENT_ID_TV:-}
+      TWITCH_CLIENT_ID_BROWSER: ${TWITCH_CLIENT_ID_BROWSER:-}
+      TWITCH_CLIENT_VERSION: ${TWITCH_CLIENT_VERSION:-}
+      COOKIE_ENCRYPTION_KEY: ${COOKIE_ENCRYPTION_KEY:-}
+      DASHBOARD_USER: ${DASHBOARD_USER:-}
+      DASHBOARD_PASSWORD_SHA256: ${DASHBOARD_PASSWORD_SHA256:-}
+      DASHBOARD_API_KEY: ${DASHBOARD_API_KEY:-}
+      MATRIX_HOMESERVER: ${MATRIX_HOMESERVER:-}
+      MATRIX_ROOM_ID: ${MATRIX_ROOM_ID:-}
+      MATRIX_ACCESS_TOKEN: ${MATRIX_ACCESS_TOKEN:-}
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      DISCORD_WEBHOOK: ${DISCORD_WEBHOOK:-}
     volumes:
-      - ./configs:/configs:ro
+      # Absolute path recommended on Portainer: a relative path resolves against
+      # the stack directory, where Docker silently creates it empty if missing.
+      - ${CONFIG_DIR:-./configs}:/configs:ro
       - twitch-miner-data:/data
+    # Must outlast the app's own 30s forced-exit timer, otherwise Docker's 10s
+    # default SIGKILL truncates cookie and notification flushing on every redeploy.
+    stop_grace_period: 35s
     healthcheck:
       test: ["CMD", "/twitch-miner-go", "-healthcheck-url", "http://127.0.0.1:8080/health"]
       interval: 30s
