@@ -240,7 +240,15 @@ func (c *Client) CheckStreamerOnline(ctx context.Context, streamer *model.Stream
 			streamer.Mu.Lock()
 			streamer.SetOffline()
 			streamer.Mu.Unlock()
+			return nil
 		}
+
+		// The category and team watchers construct streamers already marked
+		// online, with an empty broadcast ID. They never pass through the
+		// branch above, and the ID only appears once updateStream has run —
+		// which is here. restoreWatchStreak is a guarded map lookup, so
+		// repeating it on later passes costs nothing.
+		c.restoreWatchStreak(streamer)
 	}
 
 	return nil
