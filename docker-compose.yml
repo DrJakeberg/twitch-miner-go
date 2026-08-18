@@ -14,10 +14,16 @@ services:
       DATA_DIR: /data
       PORT: 8080
       # Portainer passes its stack variables as --env-file, which only feeds
-      # ${...} interpolation and never reaches the container, so every value the
-      # app reads has to be forwarded explicitly here.
+      # ${...} interpolation and never reaches the container. Everything below is
+      # forwarded explicitly for that reason. Variables with a dynamic per-account
+      # suffix (TWITCH_AUTH_TOKEN_<USERNAME>, TELEGRAM_CHAT_ID_<USERNAME>, ...)
+      # cannot be listed here — add the ones you use yourself.
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_FORMAT: ${LOG_FORMAT:-text}
+      LOG_DIR: ${LOG_DIR:-}
+      FILE_POLL_INTERVAL: ${FILE_POLL_INTERVAL:-}
+      RUN_OWNER_ACCOUNTS: ${RUN_OWNER_ACCOUNTS:-}
+      SKIP_UNAUTH: ${SKIP_UNAUTH:-}
       TWITCH_CLIENT_ID_TV: ${TWITCH_CLIENT_ID_TV:-}
       TWITCH_CLIENT_ID_BROWSER: ${TWITCH_CLIENT_ID_BROWSER:-}
       TWITCH_CLIENT_VERSION: ${TWITCH_CLIENT_VERSION:-}
@@ -31,6 +37,18 @@ services:
       TELEGRAM_TOKEN: ${TELEGRAM_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       DISCORD_WEBHOOK: ${DISCORD_WEBHOOK:-}
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      PUSHOVER_TOKEN: ${PUSHOVER_TOKEN:-}
+      PUSHOVER_USER_KEY: ${PUSHOVER_USER_KEY:-}
+      GOTIFY_URL: ${GOTIFY_URL:-}
+      GOTIFY_TOKEN: ${GOTIFY_TOKEN:-}
+      DB_ENABLED: ${DB_ENABLED:-}
+      DB_DSN: ${DB_DSN:-}
+      DB_POLL_INTERVAL: ${DB_POLL_INTERVAL:-}
+      TELEMETRY_AGREE: ${TELEMETRY_AGREE:-}
+      TELEMETRY_URL: ${TELEMETRY_URL:-}
+      TELEMETRY_INTERVAL: ${TELEMETRY_INTERVAL:-}
+      HEARTBEAT_API_KEY: ${HEARTBEAT_API_KEY:-}
     volumes:
       # Absolute path recommended on Portainer: a relative path resolves against
       # the stack directory, where Docker silently creates it empty if missing.

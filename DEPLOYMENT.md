@@ -233,11 +233,22 @@ you type into its own `stack.env` and passes it as `--env-file`, and a repositor
 stack clones no `.env` because it is gitignored. `--env-file` only feeds `${...}`
 interpolation — **it does not put variables into the container**.
 
-The compose file therefore declares `env_file` as optional and forwards every
-value the app reads through `environment:`. Variables you add in Portainer's UI
-reach the container only if they are listed there. Per-account secrets have
-dynamic names (`TWITCH_AUTH_TOKEN_<USERNAME>`, `MATRIX_ROOM_ID_<USERNAME>`), so
-add those to the `environment:` block yourself.
+The compose file therefore declares `env_file` as optional and forwards the
+documented variables through `environment:`. **A variable you add in Portainer's
+UI reaches the container only if it is listed in that block.** Two groups are
+deliberately not listed:
+
+- Per-account variables, whose names carry a dynamic suffix
+  (`TWITCH_AUTH_TOKEN_<USERNAME>`, `TELEGRAM_CHAT_ID_<USERNAME>`,
+  `MATRIX_ROOM_ID_<USERNAME>`, …). Add the ones you use yourself.
+- Platform-detection variables (`FLY_APP_NAME`, `DYNO`, `RENDER`, `K_SERVICE`, …),
+  which the app reads to identify its environment and must not be set by hand.
+
+> The `env_file` long syntax (`path:` / `required:`) needs Docker Compose
+> **2.24.0 or newer**. Portainer bundles its own Compose binary — check
+> Settings → About if your stack fails to parse. On an older version, replace the
+> block with a plain `env_file: [.env]` and create an empty `.env` next to the
+> compose file, or drop `env_file` entirely and rely on `environment:`.
 
 ### Config directory
 
@@ -252,6 +263,14 @@ Set `CONFIG_DIR` to an absolute host path instead:
 CONFIG_DIR=/srv/twitch-miner/configs
 ```
 
+### Published port
+
+`MINER_BIND_ADDR` (default `0.0.0.0`) and `MINER_HOST_PORT` (default `8080`)
+control the host side of the mapping. Note that pinning an IPv4 address disables
+the dual-stack publication a bare `8080:8080` would give you; an IPv6 literal
+must be bracketed (`[::1]`). `MINER_HOST_PORT` changes only the host port — the
+container still listens on 8080, which is what the healthcheck probes.
+
 ### Noticing a broken deploy
 
 A container that loaded no usable account config reports `503` on `/health` with
@@ -261,7 +280,12 @@ looked in.
 
 Note that `restart: unless-stopped` does **not** restart unhealthy containers —
 this state stays visible until you fix the configuration. Point an external
-monitor at `/health` if you want to be alerted actively.
+monitor at `/health` if you want to be alerted actively; the miner's own Matrix,
+Telegram and Discord notifications are configured per account, so they cannot
+report a stack that loaded no account at all.
+
+A stack whose accounts are all deliberately `enabled: false` reads as degraded
+too — from the outside that is indistinguishable from a broken mount.
 
 ---
 
@@ -380,13 +404,15 @@ The repository includes modular GitHub Actions workflows:
 |----------|---------|---------|-----------|
 | **CI** ([ci.yml](.github/workflows/ci.yml)) | Push, PR | Test, lint, version bump | Always |
 | **Docker Publish** ([docker-publish.yml](.github/workflows/docker-publish.yml)) | Called by CI after a version bump; manual dispatch | Build and push to GHCR | Only when the release job bumped the version |
-| **Fly.io Deploy** ([fly-deploy.yml](.github/workflows/fly-deploy.yml)) | Push to main, tags | Deploy to Fly.io | Not wired up in this fork (self-hosted via Portainer) |
+| **Fly.io Deploy** ([fly-deploy.yml](.github/workflows/fly-deploy.yml)) | Manual dispatch only | Deploy to Fly.io | Not wired up in this fork (self-hosted via Portainer) |
 
 > `docker-publish.yml` has no push-to-`main` trigger of its own. It runs as a
-> `workflow_call` from CI and only when the release job actually bumped the
-> version, so a push whose commits produce no bump publishes nothing. The
-> `:latest` tag is only moved from `main` or a `v*` tag — a manual dispatch from
-> a feature branch builds and pushes SHA tags but leaves `:latest` alone.
+> `workflow_call` from CI, and only when the release job actually bumped the
+> version — a push whose commits produce no bump publishes nothing. It also
+> declares a `v*.*.*` tag trigger, but that rarely fires in practice: the tag is
+> pushed by `release.yml` alongside a commit marked `[skip ci]`, which suppresses
+> the run. The `:latest` tag is only moved from `main` or a `v*` tag, so a manual
+> dispatch from a feature branch pushes SHA tags but leaves `:latest` alone.
 
 ### Enabling Workflows
 
