@@ -334,9 +334,7 @@ func setupAnalyticsServer(addr string, rootLog *logger.Logger, mgr *managedminer
 		return all
 	})
 
-	srv.SetMinerCountFunc(func() int {
-		return len(mgr.Entries())
-	})
+	srv.SetMinerCountFunc(mgr.LiveCount)
 
 	srv.SetNotifyTestFunc(func(ctx context.Context) []error {
 		return testNotifiers(ctx, mgr)
