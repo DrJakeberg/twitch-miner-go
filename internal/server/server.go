@@ -33,6 +33,9 @@ type DebugSnapshotFunc func() any
 // username, or nil if the miner is not found or has no pending flow.
 type AuthStatusFunc func(username string) any
 
+// MinerCountFunc returns the number of miners the manager currently runs.
+type MinerCountFunc func() int
+
 // DashboardAuth holds credentials for HTTP Basic Auth on the dashboard.
 // The password is stored as a SHA-256 hex digest for constant-time comparison.
 type DashboardAuth struct {
@@ -54,6 +57,7 @@ type AnalyticsServer struct {
 	notifyTestFunc NotifyTestFunc
 	debugFunc      DebugSnapshotFunc
 	authStatusFunc AuthStatusFunc
+	minerCountFunc MinerCountFunc
 	accountStore   store.Store
 }
 
@@ -156,6 +160,15 @@ func (s *AnalyticsServer) SetDebugFunc(fn DebugSnapshotFunc) {
 func (s *AnalyticsServer) SetAuthStatusFunc(fn AuthStatusFunc) {
 	s.mu.Lock()
 	s.authStatusFunc = fn
+	s.mu.Unlock()
+}
+
+// SetMinerCountFunc sets a function returning how many miners are running.
+// When set, /health reports "degraded" while the count is zero, so a container
+// that loaded no usable config is not reported as healthy. Thread-safe.
+func (s *AnalyticsServer) SetMinerCountFunc(fn MinerCountFunc) {
+	s.mu.Lock()
+	s.minerCountFunc = fn
 	s.mu.Unlock()
 }
 
