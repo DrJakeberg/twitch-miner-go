@@ -220,8 +220,12 @@ func TestSelectStreamersToWatch_Freeze_FrozenStreamerSkipped(t *testing.T) {
 	frozen := makeOnlineStreamer("frozen")
 	frozen.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
 
+	frozen.Stream.LastMinuteAttemptedAt = time.Now()
+
 	healthy := makeOnlineStreamer("healthy")
 	healthy.Stream.LastMinuteCreditedAt = time.Now().Add(-1 * time.Minute)
+
+	healthy.Stream.LastMinuteAttemptedAt = time.Now()
 
 	selected := SelectStreamersToWatch(
 		[]*model.Streamer{frozen, healthy},
@@ -257,8 +261,12 @@ func TestSelectStreamersToWatch_Freeze_AllFrozenReturnsNone(t *testing.T) {
 	a := makeOnlineStreamer("a")
 	a.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
 
+	a.Stream.LastMinuteAttemptedAt = time.Now()
+
 	b := makeOnlineStreamer("b")
 	b.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
+
+	b.Stream.LastMinuteAttemptedAt = time.Now()
 
 	selected := SelectStreamersToWatch(
 		[]*model.Streamer{a, b},
@@ -276,6 +284,8 @@ func TestSelectStreamersToWatch_Freeze_BelowThresholdNotFrozen(t *testing.T) {
 
 	recently := makeOnlineStreamer("recently")
 	recently.Stream.LastMinuteCreditedAt = time.Now().Add(-3 * time.Minute)
+
+	recently.Stream.LastMinuteAttemptedAt = time.Now()
 
 	selected := SelectStreamersToWatch(
 		[]*model.Streamer{recently},
@@ -415,6 +425,8 @@ func TestStalledCooldown_FrozenStreamerGetsCooldown(t *testing.T) {
 	s := makeOnlineStreamer("frozen")
 	s.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
 
+	s.Stream.LastMinuteAttemptedAt = time.Now()
+
 	SelectStreamersToWatch(
 		[]*model.Streamer{s},
 		[]model.Priority{model.PriorityOrder},
@@ -435,10 +447,14 @@ func TestStalledCooldown_InCooldownSkipped(t *testing.T) {
 
 	s := makeOnlineStreamer("cooldown")
 	s.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
+
+	s.Stream.LastMinuteAttemptedAt = time.Now()
 	s.Stream.StalledCooldownUntil = time.Now().Add(15 * time.Minute)
 
 	other := makeOnlineStreamer("other")
 	other.Stream.LastMinuteCreditedAt = time.Now().Add(-1 * time.Minute)
+
+	other.Stream.LastMinuteAttemptedAt = time.Now()
 
 	selected := SelectStreamersToWatch(
 		[]*model.Streamer{s, other},
@@ -456,6 +472,8 @@ func TestStalledCooldown_ExpiredCooldownAllowed(t *testing.T) {
 
 	s := makeOnlineStreamer("expired")
 	s.Stream.LastMinuteCreditedAt = time.Now().Add(-1 * time.Minute)
+
+	s.Stream.LastMinuteAttemptedAt = time.Now()
 	s.Stream.StalledCooldownUntil = time.Now().Add(-1 * time.Minute)
 
 	selected := SelectStreamersToWatch(
@@ -474,10 +492,14 @@ func TestStalledCooldown_AllInCooldownReturnsNone(t *testing.T) {
 
 	a := makeOnlineStreamer("a")
 	a.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
+
+	a.Stream.LastMinuteAttemptedAt = time.Now()
 	a.Stream.StalledCooldownUntil = time.Now().Add(20 * time.Minute)
 
 	b := makeOnlineStreamer("b")
 	b.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
+
+	b.Stream.LastMinuteAttemptedAt = time.Now()
 	b.Stream.StalledCooldownUntil = time.Now().Add(20 * time.Minute)
 
 	selected := SelectStreamersToWatch(

@@ -50,6 +50,13 @@ func (c *Client) SendMinuteWatchedEvents(ctx context.Context, streamers []*model
 }
 
 func (c *Client) sendMinuteWatchedForStreamer(ctx context.Context, httpClient *http.Client, streamer *model.Streamer) error {
+	// Stamped before anything can fail: stall detection compares this against
+	// the last credit, so it must reflect every attempt, not just the ones that
+	// got as far as the spade request.
+	streamer.Mu.Lock()
+	streamer.Stream.MarkMinuteWatchAttempt()
+	streamer.Mu.Unlock()
+
 	streamer.Mu.RLock()
 	username := streamer.Username
 	spadeURL := streamer.Stream.SpadeURL
