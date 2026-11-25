@@ -215,6 +215,14 @@ See [How to obtain Twitch runtime identifiers](https://github.com/Guliveer/twitc
 
 ---
 
+### `PubSub topic limit reached, some topics were not subscribed`
+
+**Cause:** Twitch allows 10 PubSub connections with 50 topics each, 500 per account. Every streamer always uses one topic, and each live streamer (or one that went offline less than 10 minutes ago) uses one more per enabled event feature (raid, predictions, moments, community goals). The `channels` field lists the channels and topic types that did not fit. They are retried after the next online check.
+
+**Fix:** Track fewer streamers, or turn off event features you do not need (`follow_raid`, `make_predictions`, `claim_moments`, `community_goals`) for channels where you do not use them.
+
+---
+
 ### Miner crashes repeatedly
 
 **Fix:**

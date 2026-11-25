@@ -214,10 +214,18 @@ double-claim.
 
 Each PubSub WebSocket connection supports **up to 50 topics**
 (`MaxTopicsPerConn`). Beyond that, the pool opens additional connections up to a
-maximum of **10** (`MaxPubSubConns`). With two topics per streamer
-(channel-points + video-playback), one connection covers roughly 25 streamers and
-the pool handles far more before you ever hit its ceiling. `HasCapacity` and the
-pool choose the next connection with free capacity.
+maximum of **10** (`MaxPubSubConns`), so an account holds at most 500 topics.
+`HasCapacity` and the pool choose the next connection with free capacity.
+
+Every streamer always holds its `video-playback-by-id` topic, which reports stream
+up and down, and the account holds two user topics. The event topics (raid,
+predictions, moments and community goals, as enabled) are only subscribed while a
+channel is live and stay subscribed for **10 minutes** after it goes offline, so
+raids started at the end of a stream and prediction results that arrive later
+still come through. The miner reconciles them after every online check (startup,
+the 20–60 s monitor loop, view-count updates) and on stream-up/stream-down events.
+With every event feature enabled, 150 streamers leave room for 87 of them to be
+live at the same time.
 
 </details>
 

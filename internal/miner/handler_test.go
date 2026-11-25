@@ -71,6 +71,11 @@ func newTestMiner(t *testing.T) (*Miner, *mockTwitch) {
 		eventsPredictions: make(map[string]*model.EventPrediction),
 		pendingTimers:     make(map[string]*time.Timer),
 		lastWatching:      make(map[string]bool),
+		eventTopics:       make(map[string]*eventTopicState),
+		subscribeTopics: func(context.Context, []*model.PubSubTopic) []*model.PubSubTopic {
+			return nil
+		},
+		unsubscribeTopics: func([]*model.PubSubTopic) error { return nil },
 	}
 
 	return m, mock

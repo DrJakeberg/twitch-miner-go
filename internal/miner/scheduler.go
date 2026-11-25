@@ -262,7 +262,9 @@ func (m *Miner) runMonitorLoop(ctx context.Context) error {
 				if err := m.twitch.CheckStreamerOnline(ctx, s); err != nil {
 					m.log.Debug("Online check failed",
 						"streamer", s.Username, "error", err)
+					continue
 				}
+				m.syncEventTopicsToOnlineState(ctx, s)
 			}
 		}
 	}
