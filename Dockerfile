@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 go build \
     -o /twitch-miner-go ./cmd/twitch-miner-go
 
 # Stage 2: Runtime
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/static-debian13
 
 LABEL org.opencontainers.image.description="Efficient auto drops and points claim for Twitch"
 
