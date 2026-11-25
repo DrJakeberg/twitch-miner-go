@@ -12,6 +12,9 @@ Example: `configs/my_user.yaml` → account for Twitch user `my_user`.
 |-------|------|---------|-------------|
 | `enabled` | bool | `true` | Set to `false` to disable without deleting the file |
 | `max_watch_streams` | int | `2` | Maximum concurrent streams to simulate watching |
+| `streak_watch_streams` | int | `2` | While any channel still has a watch streak pending, narrow the watch set to this many streams so the streak lands. Twitch only credits about two concurrent streams, so a wider set lets Twitch pick and no streak sticks. `0` disables the narrowing. |
+| `watch_streak_minutes` | float | `10` | How long a channel may hold a streak slot before giving way to the next pending channel, whether or not the streak arrived |
+| `preferred_streamers` | list | — | Channel logins that the `PREFERRED` priority picks first, in this order |
 | `proxy` | string | — | HTTP/SOCKS5 proxy for all Twitch API requests. Format: `socks5://host:port` |
 
 ---
@@ -32,6 +35,7 @@ Ordered list of rules for selecting which streams to watch when more are live th
 | Value | Description |
 |-------|-------------|
 | `STREAK` | Prefer streams where a watch-streak bonus is available |
+| `PREFERRED` | Prefer streams listed in `preferred_streamers`, in that order |
 | `DROPS` | Prefer streams with an active drop campaign |
 | `ORDER` | Use the order of the `streamers` list |
 | `SUBSCRIBED` | Prefer streams where you are subscribed |
@@ -42,6 +46,7 @@ Ordered list of rules for selecting which streams to watch when more are live th
 ```yaml
 priority:
   - STREAK
+  - PREFERRED
   - DROPS
   - ORDER
 ```
@@ -183,6 +188,71 @@ category_watcher:
     - slug: "just-chatting"
     - slug: "league-of-legends"
       drops_only: true
+```
+
+### `URGENT_REWARDS`
+
+Opt in by adding `URGENT_REWARDS` to the `priority` list. Put it first to let a
+time-sensitive reward take precedence over normal badge, streak, and Drops
+selection. Keep the existing priorities for the remaining slots and for when no
+reward is urgent:
+
+```yaml
+priority: [URGENT_REWARDS, BADGES, STREAK, DROPS, ORDER]
+```
+
+This priority can reserve one slot. If a streak is pending and
+`streak_watch_streams` is set to 1, it leaves that slot available to the other
+priorities. Keep `STREAK` ahead of priorities that could fill it.
+
+For each eligible, unfinished watch-time reward, the miner subtracts the
+remaining credited watch time from its deadline. It prefers the smallest
+remaining slack, between five minutes (a safety margin) and two hours. Within
+five minutes of the tightest slack, it prefers a channel already being watched,
+then a badge. Expired, unattainable, paid, and already claimable rewards do not
+get the urgent slot. Regular priorities may still select those channels.
+
+This only ranks already tracked, live, eligible channels. Discovery, the badge
+watcher limit, existing watch-slot limits, and claim settings stay unchanged.
+Progress comes from Twitch inventory, not from locally sent watch events. Badge
+rewards without matched inventory progress can use the full watch duration from
+the badge catalog as a conservative estimate. Ordinary Drops without confirmed
+inventory progress keep their normal priority until their eligibility and
+remaining time can be verified. When the Drops dashboard is empty, in-progress
+inventory campaigns can supply metadata for channels whose Twitch campaign IDs
+match. This also makes those campaigns visible to the existing campaign-based
+priorities.
+
+### `badge_watcher`
+
+Automatically discovers active watch-time Drops whose rewards match global
+Twitch chat badges, then keeps an eligible live channel in the watch set. The
+feature is opt-in and uses community-maintained Drops and badge catalogs; both
+catalogs are cached for one hour. Inventory and earned-badge checks still run
+on every poll.
+
+`BADGES` must be present in `priority` when this watcher is enabled, otherwise
+the discovered channel is not guaranteed a watch slot.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable badge campaign discovery |
+| `poll_interval` | duration | `5m` | How often to check earned badges, inventory, and eligible live streams |
+| `streamer_limit` | int | `1` | Concurrent badge-discovered channels; valid range is 1–2 |
+| `drops_catalog_url` | string | v3 community catalog | Optional Drops catalog override |
+| `badges_catalog_url` | string | v3 community catalog | Optional global badge catalog override |
+
+```yaml
+priority:
+  - BADGES
+  - STREAK
+  - DROPS
+  - ORDER
+
+badge_watcher:
+  enabled: true
+  poll_interval: 5m
+  streamer_limit: 1
 ```
 
 ### `team_watcher`

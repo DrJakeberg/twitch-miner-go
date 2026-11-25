@@ -11,9 +11,11 @@ import (
 func TestLogFileNameEncodesFullStartupTimestamp(t *testing.T) {
 	dir := t.TempDir()
 
-	if _, err := Setup(Config{Level: slog.LevelInfo, LogDir: dir}); err != nil {
+	log, err := Setup(Config{Level: slog.LevelInfo, LogDir: dir})
+	if err != nil {
 		t.Fatalf("Setup: %v", err)
 	}
+	defer log.Close()
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {

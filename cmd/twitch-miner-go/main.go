@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Guliveer/twitch-miner-go/internal/configeditor"
 	"github.com/Guliveer/twitch-miner-go/internal/encryption"
 	"github.com/Guliveer/twitch-miner-go/internal/logger"
 	"github.com/Guliveer/twitch-miner-go/internal/managedminer"
@@ -97,6 +98,9 @@ func main() {
 	logNoTime := flag.Bool("log-no-time", false, "Omit timestamps in console logs (useful when the platform adds its own, e.g. Fly.io); overrides LOG_NO_TIME env")
 	skipUnauth := flag.Bool("skip-unauth", false, "Skip accounts with no valid credentials instead of prompting for device code login")
 	noBanner := flag.Bool("no-banner", false, "Suppress the startup banner animation")
+	configEditorPort := flag.Int("config-editor-port", 8070, "Port for the embedded config editor (bound to localhost only)")
+	noTray := flag.Bool("no-tray", false, "Disable the system tray icon (e.g. headless/service environments)")
+	noConsole := flag.Bool("no-console", false, "Hide the console window on startup (Windows only; used by autostart entries and the _run scripts)")
 	flag.Parse()
 
 	if *showVersion {
@@ -111,6 +115,8 @@ func main() {
 		}
 		os.Exit(0)
 	}
+
+	applyNoConsole(*noConsole)
 
 	if err := godotenv.Load(); err != nil {
 		if _, statErr := os.Stat(".env"); statErr == nil {
@@ -210,6 +216,17 @@ func main() {
 	})
 	rootLog.Info("🌐 Health/analytics server started", "addr", ":"+httpPort)
 
+	// In DB mode account configs are managed via the database, so the embedded
+	// config editor (which edits YAML files) is neither started nor offered in
+	// the tray menu.
+	configEditorEnabled := !dbEnabled
+	if configEditorEnabled {
+		startConfigEditor(ctx, rootLog, *configDir, *configEditorPort)
+	} else {
+		rootLog.Info("Config editor skipped (DB mode — account configs are managed via the database)")
+	}
+	startTray(rootLog, resolveNoTray(*noTray), httpPort, *configEditorPort, configEditorEnabled, cancel)
+
 	telemetryCfg, err := telemetry.LoadConfigFromEnv(rootLog.Logger)
 	if err != nil {
 		rootLog.Warn("📡 Telemetry: failed to load config", "error", err)
@@ -280,6 +297,13 @@ func resolveNoBanner(flagVal bool) bool {
 	return os.Getenv("NO_BANNER") == "true"
 }
 
+func resolveNoTray(flagVal bool) bool {
+	if flagVal {
+		return true
+	}
+	return os.Getenv("NO_TRAY") == "true"
+}
+
 func resolveLogDir(flagVal string) string {
 	if flagVal != "" {
 		return flagVal
@@ -295,6 +319,22 @@ func resolvePort(flag string) string {
 		return env
 	}
 	return flag
+}
+
+func startConfigEditor(ctx context.Context, rootLog *logger.Logger, configDir string, port int) {
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		rootLog.Warn("Config editor: cannot create config directory, editor disabled", "dir", configDir, "error", err)
+		return
+	}
+
+	addr := fmt.Sprintf("localhost:%d", port)
+	editor := configeditor.NewServer(configDir)
+	utils.SafeGo(func() {
+		if err := editor.Run(ctx, addr); err != nil && ctx.Err() == nil {
+			rootLog.Warn("Config editor failed", "error", err)
+		}
+	})
+	rootLog.Info("🛠️  Config editor started", "addr", "http://"+addr, "config_dir", configDir)
 }
 
 func setupAnalyticsServer(addr string, rootLog *logger.Logger, mgr *managedminer.Manager, accountStore store.Store) *server.AnalyticsServer {
@@ -374,6 +414,18 @@ func setupAnalyticsServer(addr string, rootLog *logger.Logger, mgr *managedminer
 		return nil
 	})
 
+	srv.SetAuthStatusListFunc(func() map[string]any {
+		statuses := make(map[string]any)
+		for _, e := range mgr.Entries() {
+			status := e.Miner.DeviceCodeStatus()
+			if status == nil {
+				continue
+			}
+			statuses[strings.ToLower(e.Miner.Username())] = status
+		}
+		return statuses
+	})
+
 	return srv
 }
 
@@ -419,6 +471,8 @@ func resolveFileWatchInterval() time.Duration {
 }
 
 func runAutoUpdate(rootLog *logger.Logger, autoUpdate bool) {
+	updater.CleanupOldBinary(rootLog.Logger)
+
 	info, err := updater.CheckForUpdate(context.Background(), version.Number)
 	if err != nil {
 		rootLog.Debug("Update check failed", "error", err)

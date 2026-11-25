@@ -71,11 +71,6 @@ func LoadAccountConfig(path string) (*AccountConfig, error) {
 	return &cfg, nil
 }
 
-// ErrNoUsableAccounts reports that a config directory yielded no account the
-// miner may run. Callers use it to tell an operator misconfiguration apart from
-// a transient load failure, which must not tear down running miners.
-var ErrNoUsableAccounts = errors.New("no usable account configs")
-
 // LoadAllAccountConfigs loads all .yaml/.yml files from the given directory.
 // Each file is expected to contain a single AccountConfig.
 // Only files ending in .yaml or .yml are loaded; everything else (including
@@ -123,6 +118,11 @@ func LoadAllAccountConfigs(dir string) ([]*AccountConfig, error) {
 	return configs, nil
 }
 
+// ErrNoUsableAccounts reports that a config directory yielded no account the
+// miner may run. Callers use it to tell an operator misconfiguration apart from
+// a transient load failure, which must not tear down running miners.
+var ErrNoUsableAccounts = errors.New("no usable account configs")
+
 func isOwnerAccount(username string) bool {
 	for _, name := range ownerAccounts {
 		if strings.EqualFold(name, username) {
@@ -158,6 +158,12 @@ func applyDefaults(cfg *AccountConfig) {
 
 	if cfg.TeamWatcher.PollInterval == 0 {
 		cfg.TeamWatcher.PollInterval = 120 * time.Second
+	}
+	if cfg.BadgeWatcher.PollInterval == 0 {
+		cfg.BadgeWatcher.PollInterval = 5 * time.Minute
+	}
+	if cfg.BadgeWatcher.StreamerLimit == 0 {
+		cfg.BadgeWatcher.StreamerLimit = 1
 	}
 
 	if cfg.Followers.Order == "" {
@@ -282,8 +288,11 @@ func Validate(cfg *AccountConfig) error {
 		return err
 	}
 
-	if len(cfg.Streamers) == 0 && !cfg.Followers.Enabled && !cfg.CategoryWatcher.Enabled && !cfg.TeamWatcher.Enabled {
-		return fmt.Errorf("account %s: at least one of streamers, followers, category_watcher, or team_watcher must be configured", cfg.Username)
+	if len(cfg.Streamers) == 0 && !cfg.Followers.Enabled && !cfg.CategoryWatcher.Enabled && !cfg.TeamWatcher.Enabled && !cfg.BadgeWatcher.Enabled {
+		return fmt.Errorf("account %s: at least one of streamers, followers, category_watcher, team_watcher, or badge_watcher must be configured", cfg.Username)
+	}
+	if err := validateBadgeWatcher(cfg); err != nil {
+		return err
 	}
 
 	for i, streamerCfg := range cfg.Streamers {
@@ -335,4 +344,19 @@ func Validate(cfg *AccountConfig) error {
 	}
 
 	return nil
+}
+
+func validateBadgeWatcher(cfg *AccountConfig) error {
+	if !cfg.BadgeWatcher.Enabled {
+		return nil
+	}
+	if cfg.BadgeWatcher.StreamerLimit < 1 || cfg.BadgeWatcher.StreamerLimit > 2 {
+		return fmt.Errorf("account %s: badge_watcher.streamer_limit must be between 1 and 2", cfg.Username)
+	}
+	for _, priority := range cfg.Priority {
+		if strings.EqualFold(priority, "BADGES") {
+			return nil
+		}
+	}
+	return fmt.Errorf("account %s: badge_watcher is enabled but BADGES is absent from priority", cfg.Username)
 }

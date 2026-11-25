@@ -13,7 +13,7 @@ import (
 func trackedPrediction(m *Miner, eventID string, createdAt time.Time) *model.EventPrediction {
 	event := &model.EventPrediction{
 		EventID:   eventID,
-		Title:     "Wer gewinnt?",
+		Title:     "Who will win?",
 		CreatedAt: createdAt,
 		Status:    "ACTIVE",
 	}

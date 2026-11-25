@@ -10,10 +10,11 @@ import (
 
 // Drop represents a single time-based drop within a campaign.
 type Drop struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Benefit         string `json:"benefit"`
-	MinutesRequired int    `json:"minutes_required"`
+	ID                   string `json:"id"`
+	Name                 string `json:"name"`
+	Benefit              string `json:"benefit"`
+	MinutesRequired      int    `json:"minutes_required"`
+	RequiresSubscription bool   `json:"-"`
 
 	HasPreconditionsMet   *bool  `json:"has_preconditions_met,omitempty"`
 	CurrentMinutesWatched int    `json:"current_minutes_watched"`
@@ -59,6 +60,26 @@ func (d *Drop) Update(hasPreconditionsMet bool, currentMinutesWatched int, dropI
 	d.IsClaimed = isClaimed
 	d.IsClaimable = !d.IsClaimed && d.DropInstanceID != ""
 	d.PercentageProgress = updatedPercentage
+}
+
+// AwaitingWatchCredit reports whether this drop still depends on watch time
+// being credited. Finished, claimable, unavailable and out-of-window drops
+// cannot tell us anything about whether Twitch is counting our watch time, so
+// their progress is not evidence of a stalled credit.
+func (d *Drop) AwaitingWatchCredit(now time.Time) bool {
+	if d.IsClaimed || d.IsClaimable || d.IsSynthetic || d.RequiresSubscription {
+		return false
+	}
+	if d.HasPreconditionsMet == nil || !*d.HasPreconditionsMet {
+		return false
+	}
+	if now.Before(d.StartAt) {
+		return false
+	}
+	if !d.EndAt.IsZero() && !now.Before(d.EndAt) {
+		return false
+	}
+	return d.CurrentMinutesWatched < d.MinutesRequired
 }
 
 // ProgressBar returns a text-based progress bar for the drop.

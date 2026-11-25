@@ -1,11 +1,75 @@
 package twitch
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/Guliveer/twitch-miner-go/internal/model"
 )
+
+// Regression test for issue #41: the Spade minute-watched payload must match
+// the Twitch web client's shape. With "location" and "player" fields dropped,
+// Twitch stopped attributing watch-based channel point accrual to the session:
+// no bonus chest spawned and no PubSub points events arrived, so claims never
+// happened. Twitch returns 204 regardless, so nothing is logged visibly.
+func TestUpdateStream_MinuteWatchedPayloadMatchesWebClient(t *testing.T) {
+	t.Parallel()
+
+	transport := newMockTransport()
+	transport.responses["VideoPlayerStreamInfoOverlayChannel"] = `{"data":{"user":{"stream":{"id":"987654321","viewersCount":10,"tags":[]},"broadcastSettings":{"title":"T","game":null}}}}`
+	client := newTestClient(t, transport)
+
+	s := makeOnlineStreamer("streamer")
+	s.ChannelID = "123456"
+
+	if err := client.updateStream(context.Background(), s); err != nil {
+		t.Fatalf("updateStream returned error: %v", err)
+	}
+
+	s.Mu.RLock()
+	propsRaw, ok := s.Stream.Payload["properties"]
+	s.Mu.RUnlock()
+	if !ok {
+		t.Fatal("payload has no properties")
+	}
+	props, ok := propsRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("properties has unexpected type %T", propsRaw)
+	}
+
+	for key, want := range map[string]any{
+		"location":       "channel",
+		"player":         "site",
+		"broadcast_id":   "987654321",
+		"channel":        "streamer",
+		"channel_id":     "123456",
+		"hidden":         false,
+		"is_live":        true,
+		"live":           true,
+		"logged_in":      true,
+		"muted":          false,
+		"minutes_logged": 1,
+	} {
+		got, ok := props[key]
+		if !ok {
+			t.Errorf("missing payload field %q", key)
+			continue
+		}
+		if got != want {
+			t.Errorf("field %q = %v (%T), want %v", key, got, got, want)
+		}
+	}
+
+	// The web client sends user_id as a JSON number.
+	if got, ok := props["user_id"]; !ok || got != 12345 {
+		t.Errorf("user_id = %v (%T), want numeric 12345", got, got)
+	}
+
+	if _, ok := props["client_time"].(string); !ok || props["client_time"] == "" {
+		t.Errorf("client_time missing or empty: %v (%T)", props["client_time"], props["client_time"])
+	}
+}
 
 func makeOnlineStreamer(username string) *model.Streamer {
 	s := model.NewStreamer(username)
@@ -219,12 +283,10 @@ func TestSelectStreamersToWatch_Freeze_FrozenStreamerSkipped(t *testing.T) {
 
 	frozen := makeOnlineStreamer("frozen")
 	frozen.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
-
 	frozen.Stream.LastMinuteAttemptedAt = time.Now()
 
 	healthy := makeOnlineStreamer("healthy")
 	healthy.Stream.LastMinuteCreditedAt = time.Now().Add(-1 * time.Minute)
-
 	healthy.Stream.LastMinuteAttemptedAt = time.Now()
 
 	selected := SelectStreamersToWatch(
@@ -260,12 +322,10 @@ func TestSelectStreamersToWatch_Freeze_AllFrozenReturnsNone(t *testing.T) {
 
 	a := makeOnlineStreamer("a")
 	a.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
-
 	a.Stream.LastMinuteAttemptedAt = time.Now()
 
 	b := makeOnlineStreamer("b")
 	b.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
-
 	b.Stream.LastMinuteAttemptedAt = time.Now()
 
 	selected := SelectStreamersToWatch(
@@ -284,7 +344,6 @@ func TestSelectStreamersToWatch_Freeze_BelowThresholdNotFrozen(t *testing.T) {
 
 	recently := makeOnlineStreamer("recently")
 	recently.Stream.LastMinuteCreditedAt = time.Now().Add(-3 * time.Minute)
-
 	recently.Stream.LastMinuteAttemptedAt = time.Now()
 
 	selected := SelectStreamersToWatch(
@@ -424,7 +483,6 @@ func TestStalledCooldown_FrozenStreamerGetsCooldown(t *testing.T) {
 
 	s := makeOnlineStreamer("frozen")
 	s.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
-
 	s.Stream.LastMinuteAttemptedAt = time.Now()
 
 	SelectStreamersToWatch(
@@ -447,13 +505,11 @@ func TestStalledCooldown_InCooldownSkipped(t *testing.T) {
 
 	s := makeOnlineStreamer("cooldown")
 	s.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
-
 	s.Stream.LastMinuteAttemptedAt = time.Now()
 	s.Stream.StalledCooldownUntil = time.Now().Add(15 * time.Minute)
 
 	other := makeOnlineStreamer("other")
 	other.Stream.LastMinuteCreditedAt = time.Now().Add(-1 * time.Minute)
-
 	other.Stream.LastMinuteAttemptedAt = time.Now()
 
 	selected := SelectStreamersToWatch(
@@ -472,7 +528,6 @@ func TestStalledCooldown_ExpiredCooldownAllowed(t *testing.T) {
 
 	s := makeOnlineStreamer("expired")
 	s.Stream.LastMinuteCreditedAt = time.Now().Add(-1 * time.Minute)
-
 	s.Stream.LastMinuteAttemptedAt = time.Now()
 	s.Stream.StalledCooldownUntil = time.Now().Add(-1 * time.Minute)
 
@@ -492,13 +547,11 @@ func TestStalledCooldown_AllInCooldownReturnsNone(t *testing.T) {
 
 	a := makeOnlineStreamer("a")
 	a.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
-
 	a.Stream.LastMinuteAttemptedAt = time.Now()
 	a.Stream.StalledCooldownUntil = time.Now().Add(20 * time.Minute)
 
 	b := makeOnlineStreamer("b")
 	b.Stream.LastMinuteCreditedAt = time.Now().Add(-10 * time.Minute)
-
 	b.Stream.LastMinuteAttemptedAt = time.Now()
 	b.Stream.StalledCooldownUntil = time.Now().Add(20 * time.Minute)
 

@@ -29,5 +29,9 @@ COPY --from=builder /app/configs/example.yaml.example /configs/example.yaml.exam
 
 EXPOSE 8080
 
+# The container is headless (no desktop/DBus session); the system tray icon
+# has no surface to attach to, so it is disabled by default.
+ENV NO_TRAY=true
+
 ENTRYPOINT ["/twitch-miner-go"]
 CMD ["-config", "/configs", "-port", "8080"]

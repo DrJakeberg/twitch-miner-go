@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -51,8 +52,8 @@ func (c *Client) SendMinuteWatchedEvents(ctx context.Context, streamers []*model
 
 func (c *Client) sendMinuteWatchedForStreamer(ctx context.Context, httpClient *http.Client, streamer *model.Streamer) error {
 	// Stamped before anything can fail: stall detection compares this against
-	// the last credit, so it must reflect every attempt, not just the ones that
-	// got as far as the spade request.
+	// the last credit, so it must reflect every attempt, not just the ones
+	// that got as far as the spade request.
 	streamer.Mu.Lock()
 	streamer.Stream.MarkMinuteWatchAttempt()
 	streamer.Mu.Unlock()
@@ -145,25 +146,30 @@ func (c *Client) sendMinuteWatchedForStreamer(ctx context.Context, httpClient *h
 		return fmt.Errorf("reading stream URL list for %s: %w", username, err)
 	}
 
-	segmentURL := getSecondLastURL(string(streamBody))
-	if segmentURL == "" {
+	// Twitch credits watch time from requests for the actual stream segments, so
+	// every chunk in the media playlist is HEADed (as a playing client would),
+	// not just a single one.
+	segmentURLs := getAllURLs(string(streamBody))
+	if len(segmentURLs) == 0 {
 		return fmt.Errorf("no segment URL found for %s", username)
 	}
 
-	headReq, err := http.NewRequestWithContext(ctx, http.MethodHead, segmentURL, nil)
-	if err != nil {
-		return fmt.Errorf("creating HEAD request: %w", err)
-	}
-	headReq.Header.Set("User-Agent", constants.DefaultUserAgent)
+	for _, segmentURL := range segmentURLs {
+		headReq, err := http.NewRequestWithContext(ctx, http.MethodHead, segmentURL, nil)
+		if err != nil {
+			return fmt.Errorf("creating HEAD request: %w", err)
+		}
+		headReq.Header.Set("User-Agent", constants.DefaultUserAgent)
 
-	headResp, err := httpClient.Do(headReq)
-	if err != nil {
-		return fmt.Errorf("HEAD request for %s: %w", username, err)
-	}
-	headResp.Body.Close()
+		headResp, err := httpClient.Do(headReq)
+		if err != nil {
+			return fmt.Errorf("HEAD request for %s: %w", username, err)
+		}
+		headResp.Body.Close()
 
-	if headResp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HEAD request for %s returned status %d", username, headResp.StatusCode)
+		if headResp.StatusCode != http.StatusOK {
+			return fmt.Errorf("HEAD request for %s returned status %d", username, headResp.StatusCode)
+		}
 	}
 
 	c.Log.Debug("Simulated stream watching", "streamer", username)
@@ -174,10 +180,11 @@ func (c *Client) sendMinuteWatchedForStreamer(ctx context.Context, httpClient *h
 	}
 
 	spadeReq, err := http.NewRequestWithContext(ctx, http.MethodPost, spadeURL,
-		strings.NewReader(encodedPayload))
+		strings.NewReader(url.Values{"data": {encodedPayload}}.Encode()))
 	if err != nil {
 		return fmt.Errorf("creating spade request: %w", err)
 	}
+	spadeReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	spadeReq.Header.Set("User-Agent", constants.DefaultUserAgent)
 
 	spadeResp, err := httpClient.Do(spadeReq)
@@ -245,24 +252,16 @@ func getLastURL(manifest string) string {
 	return ""
 }
 
-// getSecondLastURL returns the second-to-last URL from an m3u8 segment playlist.
-func getSecondLastURL(playlist string) string {
+func getAllURLs(playlist string) []string {
 	lines := strings.Split(strings.TrimSpace(playlist), "\n")
-	count := 0
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := strings.TrimSpace(lines[i])
+	urls := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "http://") || strings.HasPrefix(line, "https://") {
-			count++
-			if count == 1 {
-				continue
-			}
-			return line
+			urls = append(urls, line)
 		}
 	}
-	if count == 1 {
-		return getLastURL(playlist)
-	}
-	return ""
+	return urls
 }
 
 // WatchOptions configures which streamers receive minute-watched events.
@@ -278,6 +277,8 @@ type WatchOptions struct {
 	StreakMinutes float64
 	// Preferred lists channel logins for the PREFERRED priority, in order.
 	Preferred []string
+	// PreviouslyWatched is the immutable snapshot from the last watch tick.
+	PreviouslyWatched map[string]bool
 }
 
 // WatchSet is the outcome of a selection pass.
@@ -310,7 +311,10 @@ func SelectStreamersToWatch(streamers []*model.Streamer, priorities []model.Prio
 // its slot until the streak arrives or StreakMinutes elapse, then gives way to
 // the next. Once nothing is pending the set widens back to MaxWatch.
 func SelectWatchSet(streamers []*model.Streamer, opts WatchOptions) WatchSet {
-	now := time.Now()
+	return selectWatchSetAt(streamers, opts, time.Now())
+}
+
+func selectWatchSetAt(streamers []*model.Streamer, opts WatchOptions, now time.Time) WatchSet {
 	onlineIndices := collectOnlineIndices(streamers, now)
 	if len(onlineIndices) == 0 {
 		return WatchSet{}
@@ -344,9 +348,19 @@ func SelectWatchSet(streamers []*model.Streamer, opts WatchOptions) WatchSet {
 		return true
 	}
 
+	urgentEvaluated := false
+	// Leave the only slot available to STREAK while the watch set is narrowed.
+	allowUrgentReward := !streakHarvest || maxWatch > 1
 	for _, priority := range opts.Priorities {
 		if len(watching) >= maxWatch {
 			break
+		}
+		if priority == model.PriorityUrgentRewards {
+			if allowUrgentReward && !urgentEvaluated {
+				applyUrgentReward(streamers, onlineIndices, watching, add, opts.PreviouslyWatched, now)
+				urgentEvaluated = true
+			}
+			continue
 		}
 		applyPriority(priority, streamers, onlineIndices, watching, maxWatch, add, opts)
 	}
@@ -434,6 +448,8 @@ func applyPriority(
 		applyPriorityOrder(onlineIndices, remaining, add)
 	case model.PriorityPreferred:
 		applyPriorityPreferred(streamers, onlineIndices, watching, remaining, add, opts.Preferred)
+	case model.PriorityBadges:
+		applyPriorityBadges(streamers, onlineIndices, watching, remaining, add)
 	case model.PriorityStreak:
 		applyPriorityStreak(streamers, onlineIndices, watching, remaining, add, opts.StreakMinutes)
 	case model.PriorityDrops:
@@ -446,6 +462,23 @@ func applyPriority(
 		applyPriorityEndingSoonest(streamers, onlineIndices, watching, remaining, add)
 	case model.PriorityLowAvailabilityFirst:
 		applyPriorityLowAvailability(streamers, onlineIndices, watching, remaining, add)
+	}
+}
+
+func applyPriorityBadges(streamers []*model.Streamer, onlineIndices []int, watching map[int]struct{}, remaining int, add func(int) bool) {
+	for _, idx := range onlineIndices {
+		if remaining <= 0 {
+			return
+		}
+		if _, ok := watching[idx]; ok {
+			continue
+		}
+		streamers[idx].Mu.RLock()
+		isBadge := streamers[idx].IsBadgeWatched
+		streamers[idx].Mu.RUnlock()
+		if isBadge && add(idx) {
+			remaining--
+		}
 	}
 }
 

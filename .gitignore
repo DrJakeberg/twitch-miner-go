@@ -26,6 +26,7 @@ cookies/**
 !graphify-out/graph.json
 !graphify-out/manifest.json
 graphify-out/graph.html
+graphify-out/**/GRAPH_REPORT.md
 
 # Logs
 *.log
@@ -43,6 +44,9 @@ logs/
 # Service installer (generated)
 _service-start.bat
 
+# Brag video build output
+/brag-output/
+
 # Other
 !.claude/settings.json
 .remember/
@@ -52,3 +56,4 @@ graphify-out/cost.json
 graphify-out/.graphify_python
 graphify-out/.graphify_root
 graphify-out/.graphify_uncached.txt
+graphify-out/cache/last_query_stamp

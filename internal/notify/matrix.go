@@ -26,8 +26,8 @@ type Matrix struct {
 }
 
 // Send puts a message into the configured Matrix room. The title is rendered
-// as the first line — every other provider has a dedicated title slot, Matrix
-// does not — and an HTML variant is attached so clients that render formatted
+// as the first line—every other provider has a dedicated title slot, Matrix
+// does not—and an HTML variant is attached so clients that render formatted
 // bodies show the header and field labels in bold.
 func (m *Matrix) Send(ctx context.Context, _ model.Event, title, message string) error {
 	encodedRoomID := url.PathEscape(m.roomID)
@@ -75,8 +75,8 @@ func (m *Matrix) Send(ctx context.Context, _ model.Event, title, message string)
 
 // matrixHTML renders the notification as Matrix-flavoured HTML: the title and
 // the message's first line become headers, and any "Label: value" line has its
-// label emphasised. All content is escaped first — streamer names, stream
-// titles and prediction questions are attacker-controlled text.
+// label emphasised. All content is escaped first—streamer names, stream titles
+// and prediction questions are attacker-controlled text.
 func matrixHTML(title, message string) string {
 	var sb strings.Builder
 

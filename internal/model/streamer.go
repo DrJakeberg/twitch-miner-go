@@ -19,11 +19,14 @@ type Streamer struct {
 
 	Settings *StreamerSettings `json:"settings,omitempty"`
 
-	IsOnline          bool   `json:"is_online"`
-	IsCategoryWatched bool   `json:"is_category_watched"`
-	CategorySlug      string `json:"category_slug,omitempty"`
-	IsTeamWatched     bool   `json:"is_team_watched"`
-	TeamName          string `json:"team_name,omitempty"`
+	IsOnline          bool           `json:"is_online"`
+	IsCategoryWatched bool           `json:"is_category_watched"`
+	CategorySlug      string         `json:"category_slug,omitempty"`
+	IsTeamWatched     bool           `json:"is_team_watched"`
+	TeamName          string         `json:"team_name,omitempty"`
+	IsBadgeWatched    bool           `json:"is_badge_watched"`
+	BadgeCampaign     string         `json:"badge_campaign,omitempty"`
+	BadgeReward       RewardDeadline `json:"-"`
 
 	StreamUpAt time.Time `json:"stream_up_at"`
 	OnlineAt   time.Time `json:"online_at"`
@@ -253,6 +256,16 @@ func ParseChatPresence(s string) ChatPresence {
 		return ChatOffline
 	default:
 		return ChatOnline
+	}
+}
+
+// AllChatModes returns a slice of all defined chat presence modes in canonical order.
+func AllChatModes() []ChatPresence {
+	return []ChatPresence{
+		ChatAlways,
+		ChatNever,
+		ChatOnline,
+		ChatOffline,
 	}
 }
 

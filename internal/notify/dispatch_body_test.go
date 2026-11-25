@@ -47,7 +47,7 @@ func (c *capturingNotifier) snapshot() (string, string) {
 }
 
 // TestNotifyFuncDeliversChannelInBetBody walks the full chain a bet result
-// takes — logger.Event fields → Dispatcher.NotifyFunc → provider Send — and
+// takes—logger.Event fields → Dispatcher.NotifyFunc → provider Send—and
 // asserts the channel survives into the message body, not just the title.
 // Matrix ignored the title for years, which is exactly how it went missing.
 func TestNotifyFuncDeliversChannelInBetBody(t *testing.T) {
