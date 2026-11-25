@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -195,12 +196,12 @@ func (c *Client) CheckStreamerOnline(ctx context.Context, streamer *model.Stream
 					streamer.Mu.Unlock()
 					c.Log.Info("Streamer renamed", "old", oldLogin, "new", newLogin)
 
-				if retryErr := c.updateStream(ctx, streamer); retryErr != nil {
-					streamer.Mu.Lock()
-					streamer.SetOffline()
-					streamer.Mu.Unlock()
-					return nil //nolint:nilerr // streamer already set offline; caller only needs to know check completed
-				}
+					if retryErr := c.updateStream(ctx, streamer); retryErr != nil {
+						streamer.Mu.Lock()
+						streamer.SetOffline()
+						streamer.Mu.Unlock()
+						return nil //nolint:nilerr // streamer already set offline; caller only needs to know check completed
+					}
 				} else {
 					streamer.Mu.Lock()
 					streamer.SetOffline()
@@ -338,20 +339,38 @@ func (c *Client) updateStream(ctx context.Context, streamer *model.Streamer) err
 		}
 	}
 
-	payload := map[string]any{
-		"channel_id":   streamer.ChannelID,
-		"broadcast_id": streamer.Stream.BroadcastID,
-		"player":       "site",
-		"user_id":      c.Auth.UserID(),
-		"live":         true,
-		"channel":      streamer.Username,
+	// The web client always sends "location" and "player"; without them Twitch
+	// attributes the session to a non-site context and stops watch-based
+	// channel point accrual (passive earnings, bonus chest, watch streaks),
+	// even though Spade still answers 204 (issue #41).
+	properties := map[string]any{
+		"broadcast_id":   streamer.Stream.BroadcastID,
+		"channel_id":     streamer.ChannelID,
+		"channel":        streamer.Username,
+		"client_time":    time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+		"game":           streamer.Stream.GameName(),
+		"game_id":        streamer.Stream.GameID(),
+		"hidden":         false,
+		"is_live":        true,
+		"live":           true,
+		"location":       "channel",
+		"logged_in":      true,
+		"minutes_logged": 1,
+		"muted":          false,
+		"player":         "site",
+	}
+
+	// Twitch attributes watch time to the numeric account id, matching its web
+	// client, which sends user_id as a JSON number rather than a string.
+	if userID, err := strconv.Atoi(c.Auth.UserID()); err == nil {
+		properties["user_id"] = userID
+	} else {
+		c.Log.Warn("Watch payload missing numeric user ID; Twitch will not credit watch time",
+			"streamer", username, "user_id", c.Auth.UserID(), "error", err)
 	}
 
 	if streamer.Stream.GameName() != "" && streamer.Stream.GameID() != "" &&
 		streamer.Settings != nil && streamer.Settings.ClaimDrops {
-		payload["game"] = streamer.Stream.GameName()
-		payload["game_id"] = streamer.Stream.GameID()
-
 		campaignIDs, err := c.GQL.GetAvailableCampaigns(ctx, streamer.ChannelID)
 		if err == nil {
 			streamer.Stream.CampaignIDs = campaignIDs
@@ -360,7 +379,7 @@ func (c *Client) updateStream(ctx context.Context, streamer *model.Streamer) err
 
 	streamer.Stream.Payload = map[string]any{
 		"event":      "minute-watched",
-		"properties": payload,
+		"properties": properties,
 	}
 
 	return nil

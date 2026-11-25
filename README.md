@@ -1,10 +1,14 @@
 <p align="center">
-  <picture>
-    <img src="docs/social_preview_3.png" alt="twitch-miner-go - Efficient Auto Drops &amp; Points Claim for Twitch" width="100%">
-  </picture>
+  <a href="https://glvr.vercel.app/twitch-miner-go">
+    <img src="docs/brag.jpg" alt="twitch-miner-go - Go to bed. It's mining." width="100%">
+  </a>
 </p>
 
-# twitch-miner-go - Efficient Auto Drops & Points Claim for Twitch
+<p align="center">
+  <a href="https://glvr.vercel.app/twitch-miner-go"><b>▶️ Watch the 20-second launch film</b></a>
+</p>
+
+# twitch-miner-go // *Go to bed. It's mining.*
 
 [![GitHub Stars](https://img.shields.io/github/stars/Guliveer/twitch-miner-go?style=for-the-badge&logo=github&color=gold)](https://github.com/Guliveer/twitch-miner-go/stargazers)
 [![CI](https://img.shields.io/github/actions/workflow/status/Guliveer/twitch-miner-go/ci.yml?style=for-the-badge&logo=github&label=CI)](https://github.com/Guliveer/twitch-miner-go/actions/workflows/ci.yml)
@@ -14,13 +18,48 @@
 [![Created At](https://img.shields.io/github/created-at/Guliveer/twitch-miner-go?style=for-the-badge&logo=github)](https://github.com/Guliveer/twitch-miner-go)
 [![License](https://img.shields.io/github/license/Guliveer/twitch-miner-go?style=for-the-badge)](https://github.com/Guliveer/twitch-miner-go/blob/main/LICENSE.txt)
 
-A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2). Mines channel points, claims bonuses, places predictions, joins raids, claims drops, and more — all with a fraction of the resource usage.
+Mines channel points, claims bonuses, places predictions, joins raids, claims drops, and more — all with a fraction of the resource usage.
 
-> ⭐ **[Star this repo](https://github.com/Guliveer/twitch-miner-go/stargazers)** to bookmark it and get notified about new releases — the project is young, actively developed, and the best time to jump in is now.
+Automatically claim:
+- 🎁 Twitch Drops
+- 💎 Channel Points
+- 🎉 Bonuses
+- 🔮 Predictions
+- ⚔️ Raids
+- 🎯 Community Goals
+- 🎊 Community Moments
+
+Built for low resource usage and long-running deployments.
+
+**Quick start:** download a [release binary](https://github.com/Guliveer/twitch-miner-go/releases/latest) (Windows, macOS, Linux), or from a clone run `./_run.sh` on macOS/Linux or double-click `_run.bat` on Windows — no browser, no Docker required. See [Running Locally](#14-running-locally) and the [Quick Start config](#151-quick-start).
+
+> ⭐ **[Star this repo](https://github.com/Guliveer/twitch-miner-go/stargazers)** to bookmark it to help others discover it — the project is young, actively developed, and the best time to jump in is now.
+
+## Why twitch-miner-go?
+
+A drop-in **alternative to [Twitch Channel Points Miner v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2), [TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) and many others**, but better:
+
+- **Fully cross-platform** — one compiled binary for Windows, macOS and Linux (amd64 and arm64), a multi-arch Docker image and native services (systemd/OpenRC, Windows service) — the same setup runs on a desktop, a Raspberry Pi or a VPS
+- **No runtime dependencies** — no Python, no `pip install`, no dependency conflicts; just a single static binary
+- **Lightweight** — ~80 MB RAM vs >250 MB and a ~12 MB Docker image vs 200–500 MB; see the [resource comparison](#13-resource-comparison)
+- **Complete feature set** — channel points, watch streaks, bonuses, drops, predictions, raids, moments and goals
+- **Multi-account** — run several Twitch accounts from a single process, each with its own config and notification channel
+- **Headless & 24/7** — no GUI required, automatic restart on crash
+- **Notifications** — Telegram, Discord, Webhook, Matrix, Pushover, Gotify
+- **More on top** — hot-reload configs, PostgreSQL DB mode with REST API, analytics dashboard, config editor and auto-update
+
+## Use cases
+
+- **Leave-and-forget mining** — set up your account once and let the miner claim channel points, bonuses, drops, predictions and raids while you are away
+- **Multi-account farming** — run several Twitch accounts from a single process, each with its own config and notification channel
+- **Self-hosting** — a small, low-footprint service that fits on a Raspberry Pi, VPS, Docker or Fly.io
+- **Programmatic management** — manage accounts via the REST API and PostgreSQL backend, or the [twitch-miner-go-dashboard](https://github.com/Guliveer/twitch-miner-go-dashboard) UI
 
 ## 1.1. Table of Contents
 
-- [twitch-miner-go - Efficient Auto Drops & Points Claim for Twitch](#twitch-miner-go---efficient-auto-drops--points-claim-for-twitch)
+- [twitch-miner-go - Go to bed. It's mining.](#twitch-miner-go---go-to-bed-its-mining)
+    - [Why twitch-miner-go?](#why-twitch-miner-go)
+    - [Use cases](#use-cases)
     - [1.1. Table of Contents](#11-table-of-contents)
     - [1.2. Features](#12-features)
     - [1.3. Resource Comparison](#13-resource-comparison)
@@ -64,6 +103,8 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
     - [1.14. Auto-Update](#114-auto-update)
         - [1.14.1. Automatic updates](#1141-automatic-updates)
     - [1.15. License](#115-license)
+    - [1.16. FAQ](#116-faq)
+    - [1.17. Advanced Guide](#117-advanced-guide)
 
 ## 1.2. Features
 
@@ -76,6 +117,7 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
 - 🎯 **Community goals** — automatic goal contributions
 - 🎁 **Gift sub detection** — notifies when your account receives a gifted subscription
 - 🏷️ **Category watcher** — auto-discover streamers by game category
+- 🏅 **Badge watcher** — opt-in discovery of active watch-time chat badge Drops (community catalog)
 - 🤝 **Team watcher** — auto-discover streamers by Twitch team membership
 - ⭐ **Followers mode** — automatically watch all followed channels
 - 🔔 **Notifications** — Telegram, Discord, Webhook, Matrix, Pushover, Gotify
@@ -90,8 +132,10 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
 | Memory          | >250 MB *(spikes)*      | **~80 MB** *(stable)*                    | **3× less**            |
 | Docker image    | 200–500 MB              | **~12 MB**                               | **20–40× smaller**     |
 | Startup time    | 5–10 s                  | **~2–3 s**                               | **2–4× faster**        |
-| Streamer loading| ~4 500 ms / 5 streamers | **~260 ms / 5 streamers** *(concurrent)* | **3.5× faster**        |
+| Streamer loading| ~4 500 ms / 5 streamers | **~260 ms / 5 streamers** *(concurrent)* | **~17× faster**        |
 | OS threads      | 60+                     | **~4–5** / ~25 goroutines                | **12× fewer**          |
+
+> Measurements are approximate and depend on configuration, number of accounts and active channels.
 
 > Impressed by the difference? A [⭐ star](https://github.com/Guliveer/twitch-miner-go/stargazers) helps the next person find this instead of running the bloated Python image. Already using the miner? That one click keeps you in the loop for what ships next.
 
@@ -105,7 +149,7 @@ A high-performance Go rewrite of the [Twitch Channel Points Miner v2](https://gi
 ./_run.sh
 ```
 
-**Windows:**
+**Windows:** double-click `_run.bat` in File Explorer, or run it from Command Prompt or PowerShell:
 
 ```batch
 _run.bat
@@ -114,10 +158,18 @@ _run.bat
 **With custom flags:**
 
 ```bash
+# macOS / Linux
 ./_run.sh -config configs -port 9090 -log-level debug
 ```
 
-> The scripts build the binary and run it in one step. You can also build manually with `go build -o twitch-miner-go ./cmd/twitch-miner-go`.
+```bat
+REM Windows
+_run.bat -config configs -port 9090 -log-level debug
+```
+
+> The scripts build the binary and run it in one step. You can also build manually with `go build -o twitch-miner-go ./cmd/twitch-miner-go`. If the build fails after a double-click, the `_run.bat` window stays open with the error instead of closing.
+>
+> **Console window:** `_run.sh` / `_run.bat` pass `-no-console`, so on Windows the terminal window hides once the miner is running (bring it back with tray menu **Show Terminal**). Use `_run-localdev.sh` / `_run-localdev.bat` for local development — they keep the console visible and add dev-friendly flags (`-no-lifecycle-notify -skip-unauth -no-banner`).
 
 ### 1.4.1. Flags
 
@@ -135,6 +187,9 @@ _run.bat
 | `-skip-unauth`           | `false`   | Skip accounts with no valid credentials instead of prompting for device code login |
 | `-no-banner`             | `false`   | Suppress the startup banner animation |
 | `-log-no-time`           | `false`   | Omit timestamps in console logs (useful when the platform adds its own, e.g. Fly.io)   |
+| `-config-editor-port`    | `8070`    | Port for the embedded config editor (bound to `localhost` only)                        |
+| `-no-tray`               | `false`   | Disable the system tray icon (e.g. headless/service environments)                       |
+| `-no-console`            | `false`   | Hide the console window on startup (Windows only; used by autostart entries and the `_run` scripts, which pass it by default)            |
 
 ## 1.5. Configuration
 
@@ -143,8 +198,13 @@ Create one YAML file per account in the `configs/` directory. **The filename (wi
 For example, to add an account for Twitch user `guliveer_`, create `configs/guliveer_.yaml`.
 
 ```bash
-# Copy the example and customize for your account
+# macOS / Linux
 cp configs/example.yaml.example configs/your_twitch_username.yaml
+```
+
+```bat
+REM Windows (Command Prompt)
+copy configs\example.yaml.example configs\your_twitch_username.yaml
 ```
 
 See [`configs/example.yaml.example`](configs/example.yaml.example) for the full schema. Files with a `.yaml.example` extension are not loaded as configs — only `.yaml` and `.yml` files are loaded.
@@ -186,10 +246,22 @@ preferred_streamers:
   - insym
 
 priority:
+  - BADGES
   - STREAK
   - PREFERRED
   - DROPS
   - ORDER
+
+# Optional: discover active Drops whose reward matches a global Twitch chat badge.
+# BADGES must be present in priority to guarantee a badge channel gets a watch slot.
+# Optional: add URGENT_REWARDS above BADGES to prioritize one time-sensitive
+# Drop or badge. See URGENT_REWARDS in the wiki Configuration Reference.
+# The two catalogs are maintained by the Twitch-Channel-Points-Miner-v3 project,
+# so discovery pauses safely if either catalog is unavailable or malformed.
+badge_watcher:
+  enabled: false
+  poll_interval: 5m # catalogs are cached for fifteen minutes
+  streamer_limit: 1
 
 streamer_defaults:
   make_predictions: true
@@ -224,7 +296,33 @@ followers:
 
 ### 1.5.2. Config Editor
 
-A self-contained Go binary for creating, editing, and deleting account configs. Supports two modes:
+The `twitch-miner-go` binary itself embeds the config editor. When the miner is
+running in **file mode**, the editor is always available at
+**http://localhost:8070** (bound to `localhost` only — no other device on your
+network can reach it), so you can manage account configs while the miner is
+running without a separate program. In **DB mode** the editor is not started
+(port 8070 stays closed) — account configs are managed via the REST API and
+[twitch-miner-go-dashboard](#153-database-mode-optional) instead.
+
+The config schema exposed at `/api/config/schema` is generated from the model
+constants that define the accepted enum values and defaults — the Go types are
+the single source of truth, so any client (dashboard, editor) always sees
+exactly the values the miner accepts.
+
+On Windows, Linux and macOS desktops a **system tray icon** is shown with
+quick links: left-click opens the dashboard, right-click shows a menu with
+**Dashboard**, **Config Editor** (hidden in DB mode), a **Service** submenu (install/start/stop/
+restart/status/uninstall, delegating to the platform installer script), a
+**Startup** submenu (start on logon, start at boot via the service installer),
+**Hide/Show Terminal** (Windows only, toggles the terminal window), and **Exit** (to stop the miner gracefully).
+The tray is skipped automatically when running as a Windows service (session 0
+has no desktop) or when `-no-tray` is set. The embedded editor's port can be
+changed with `-config-editor-port`. Note that on macOS the tray requires cgo,
+so the binary must be built with cgo enabled (release binaries build it on a
+macOS runner; see [Auto-Update](#114-auto-update)).
+
+The config editor is also available as a separate self-contained Go binary for
+environments where the full miner isn't needed:
 
 - **Web GUI** (default) — opens a browser-based editor at `http://localhost:3000`
 - **TUI** — interactive terminal forms, no browser required
@@ -273,6 +371,10 @@ DB_DSN=postgresql://user:password@host:5432/dbname?sslmode=require
 
 The schema and migrations run automatically on first connection (via [goose](https://github.com/pressly/goose)).
 
+> **Note:** In DB mode the embedded config editor is **not** started (port 8070
+> stays closed) and the tray menu does not offer **Config Editor** — account
+> configs are managed exclusively through the database.
+
 **Migrate existing YAML configs to DB:**
 
 ```bash
@@ -299,7 +401,7 @@ All endpoints return `501 Not Implemented` when `DB_ENABLED=false`. Auth follows
 
 | Method   | Endpoint                    | Description                                           |
 |----------|-----------------------------|-------------------------------------------------------|
-| `GET`    | `/api/config/schema`        | Returns validation schema and default values           |
+| `GET`    | `/api/config/schema`        | Returns schema generated from model constants: enums, defaults, `notification_providers`, `outcome_keys`, and `rules` |
 | `POST`   | `/api/config/validate`      | Validates config JSON without saving (body: AccountConfig JSON) |
 | `POST`   | `/api/config/generate`      | Generates YAML from config JSON (body: AccountConfig JSON) |
 
@@ -326,7 +428,7 @@ For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN
 
 > 📡 **Telemetry notice:** Upstream collects anonymous usage data by default — instance ID, version, OS, architecture, and running account count. **This fork inverts that: telemetry is off unless you set `TELEMETRY_AGREE=true`**, because it runs as a single self-hosted LAN-only instance. No personal data, channel names, IP addresses, or identifying information is sent even when enabled.  
 
-> The instance ID is a random UUID v4 generated on first run and persisted in `DATA_DIR/.instance_id` — the same instance keeps the same ID across restarts. When running in Docker or on Fly.io, ensure `DATA_DIR` is a mounted/persistent volume so the ID survives container rebuilds.  
+> The instance ID is a random UUID v4 generated on first run and persisted in `DATA_DIR/.instance_id` — the same instance keeps the same ID across restarts. The file is created hidden and read-only, so it is never overwritten while the ID stays stable. When running in Docker or on Fly.io, ensure `DATA_DIR` is a mounted/persistent volume so the ID survives container rebuilds.  
 
 > Source code for the telemetry server: [github.com/Guliveer/twitch-miner-go-telemetry](https://github.com/Guliveer/twitch-miner-go-telemetry)
 
@@ -339,6 +441,7 @@ For example, for user `guliveer_` the Telegram token variable is `TELEGRAM_TOKEN
 | `LOG_NO_TIME`               | Set to `true` to omit timestamps in console logs (avoids duplication when the platform adds timestamps, e.g. Fly.io) | `false`          |
 | `SKIP_UNAUTH`               | Set to `true` to skip accounts with no valid credentials instead of prompting for device code login | `false`          |
 | `NO_BANNER`                 | Set to `true` to suppress the startup banner animation                                        | `false`          |
+| `NO_TRAY`                   | Set to `true` to disable the system tray icon (headless/service/container environments)       | `false`          |
 | `LOG_DIR`                   | Enable file logging; directory for `.log` files named with startup timestamp. In Docker use a path under the `/data` volume (e.g. `/data/logs`) — a relative path lands in the container layer and is lost on redeploy. Files are not rotated. | _(disabled)_     |
 | `PORT`                      | HTTP server port for health/analytics                                                         | `8080`           |
 | `DATA_DIR`                  | Persistent data directory (cookies, state)                                                    | `.`              |
@@ -466,6 +569,8 @@ Cookie files store authentication tokens in plaintext by default. You can option
 echo 'COOKIE_ENCRYPTION_KEY=<generated_key>' >> .env
 ```
 
+> Both helpers are POSIX shell scripts. On Windows, generate the key with `openssl rand -base64 32` (for example in Git Bash) and add the `COOKIE_ENCRYPTION_KEY=<generated_key>` line to `.env` manually.
+
 **Behavior:**
 
 - **Without `COOKIE_ENCRYPTION_KEY`** — cookies are stored and loaded as plaintext (default, unchanged behavior).
@@ -548,7 +653,7 @@ The `events` list controls which events trigger a notification for a given provi
 | `ACCOUNT_CONFIG_RELOADED`    | 🔄    | Account config changed in DB or YAML and miner was restarted (DB mode and file mode) |
 | `TEST`                       | —     | Test notification (see below)                                                      |
 
-> **Note:** Emojis are prepended to log messages and notifications automatically. The emoji mappings are defined in [`eventEmoji`](internal/logger/logger.go:19). The event type constants are defined in [`internal/model/settings.go`](internal/model/settings.go:7).
+> **Note:** Emojis are prepended to log messages and notifications automatically. The emoji mappings are defined in [`eventEmoji`](internal/logger/logger.go#L19). The event type constants are defined in [`internal/model/settings.go`](internal/model/settings.go#L7).
 >
 > **Note:** Lifecycle events (`MINER_STARTED`, `MINER_STOPPED`, `MINER_CRASHED`, `ACCOUNT_CONFIG_RELOADED`) are always sent immediately — they bypass notification batching entirely.
 >
@@ -615,6 +720,8 @@ The miner exposes a `POST /api/test-notification` endpoint on the analytics serv
 curl -X POST http://localhost:8080/api/test-notification
 ```
 
+> On Windows PowerShell, `curl` is an alias for `Invoke-WebRequest` and does not accept `-X`. Use `curl.exe -X POST http://localhost:8080/api/test-notification`, or `Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/test-notification`.
+
 A successful response looks like:
 
 ```json
@@ -676,6 +783,17 @@ The variable name is `TWITCH_AUTH_TOKEN_` followed by the **uppercase** username
 
 ## 1.9. Docker
 
+The `docker run` commands below pass `--env-file .env`, so create that file from the template first — Docker fails if it is missing:
+
+```bash
+cp .env.example .env
+```
+
+```bat
+REM Windows (Command Prompt)
+copy .env.example .env
+```
+
 ```bash
 # Build
 docker build -t twitch-miner-go .
@@ -709,6 +827,8 @@ docker run -d \
   -e TWITCH_PASSWORD_YOUR_USERNAME=your_twitch_password \
   twitch-miner-go
 ```
+
+> These commands are written for bash: run them as a single line on Windows, and replace `$(pwd)` with `%cd%` in Command Prompt or `${PWD}` in PowerShell. PowerShell continues a line with a backtick, not `\`.
 
 ### 1.9.1. Docker Compose
 
@@ -790,10 +910,11 @@ sudo ./tools/install-service.sh uninstall
 
 ## 1.11. Windows Service
 
-Run twitch-miner-go as a Windows service with automatic restarts. The binary is rebuilt from source on every start, so config and code changes are always picked up. Uses [NSSM](https://nssm.cc/) (auto-downloaded if not installed).
+Run twitch-miner-go as a Windows service with automatic restarts. The installer builds the binary once and the service runs it directly, so a downloaded auto-update is not overwritten when the service restarts; the `restart` command rebuilds from source when you changed code. Uses [NSSM](https://nssm.cc/) (auto-downloaded if not installed).
+
+Double-click `tools\install-service.bat` and accept the UAC prompt — the script re-launches itself elevated. To pick a specific command, run it from Command Prompt or PowerShell (it asks for elevation the same way):
 
 ```bat
-REM Right-click and select "Run as administrator"
 tools\install-service.bat install
 ```
 
@@ -802,11 +923,15 @@ The wizard will prompt for config directory, port, and log level.
 ### 1.11.1. Managing the Service
 
 ```bat
-tools\install-service.bat start       REM starts (rebuilds the binary first)
+REM starts the service
+tools\install-service.bat start
 tools\install-service.bat stop
-tools\install-service.bat restart     REM restart with a fresh rebuild
+REM rebuilds from source, then restarts
+tools\install-service.bat restart
 tools\install-service.bat status
 ```
+
+> Services installed by an older version of the installer run `_run.bat` and rebuild on every start. Re-run `tools\install-service.bat install` once to switch them to the direct wrapper — otherwise an auto-update is replaced by a rebuild on the next restart.
 
 ### 1.11.2. Uninstalling
 
@@ -825,9 +950,12 @@ The repo includes [`fly.toml`](fly.toml) — the Fly.io deployment config. Fly.i
 ```bash
 # 1. Copy the example account config and customize (filename = your Twitch username)
 cp configs/example.yaml.example configs/your_twitch_username.yaml
+#    Windows: use "copy" instead of "cp"
 
-# 2. Install flyctl
+# 2. Install flyctl (macOS / Linux)
 curl -L https://fly.io/install.sh | sh
+#    Windows PowerShell:
+#    iwr https://fly.io/install.ps1 -useb | iex
 
 # 3. Login
 fly auth login
@@ -887,7 +1015,10 @@ For self-hosted deployments, Docker Compose is also supported — see the [Docke
 
 ## 1.13. Development
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) and automated versioning. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full commit convention, git hooks setup, and versioning workflow.
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) and automated versioning. See [`CONTRIBUTING.md`](.github/CONTRIBUTING.md) for the full commit convention, git hooks setup, and versioning workflow.
+
+The landing page in [`docs/`](docs/) comes from upstream, which publishes it to
+GitHub Pages. This fork does not publish it.
 
 ## 1.14. Auto-Update
 
@@ -898,15 +1029,27 @@ On startup, the miner automatically checks for new releases in the background. I
 Pass `-auto-update` to have the miner download and apply the update itself:
 
 ```bash
+# macOS / Linux
 ./_run.sh -auto-update
+```
+
+```bat
+REM Windows
+_run.bat -auto-update
 ```
 
 When a new release is detected:
 1. The platform-specific binary is downloaded from [GitHub Releases](https://github.com/Guliveer/twitch-miner-go/releases).
-2. The current binary is replaced atomically.
+2. The download is written next to the running executable and renamed into place, so the swap never crosses a filesystem boundary.
 3. The process exits with code 0 — your service manager (systemd, NSSM, OpenRC) restarts it automatically with the new binary.
 
 If the download or replacement fails (e.g. no write permission, Docker read-only filesystem), the miner continues running and prints the usual update notification instead.
+
+> **Windows:** a running executable cannot be overwritten, so the updater renames the current binary to `twitch-miner-go.exe.old`, puts the new one in place, and removes the leftover file on the next start. The `.old` file is expected until the process has restarted.
+
+> **systemd:** the unit written by `tools/install-service.sh` uses `Restart=always`, so the clean exit after an update restarts the service. Units installed by older versions used `Restart=on-failure` and must be reinstalled (or edited) to pick up automatic restarts after an update.
+
+> **Running by hand:** without a service manager the miner simply exits after applying the update. Start it again to use the new version.
 
 **To enable in a systemd unit**, add `-auto-update` to `ExecStart`:
 ```ini
@@ -920,3 +1063,291 @@ ExecStart=/usr/local/bin/twitch-miner-go -config /etc/twitch-miner-go/configs -a
 ## 1.15. License
 
 This project is licensed under the GNU GPL v3.0 License. See the [LICENSE](LICENSE.txt) file for details.
+
+## 1.16. FAQ
+
+Quick answers to the questions users ask most. A more detailed version — with
+longer walk-throughs and context — lives in the
+[project wiki FAQ](https://github.com/Guliveer/twitch-miner-go/wiki/FAQ).
+
+<details>
+<summary>Can I use this without installing Go?</summary>
+
+Yes. To *run* the miner, download the release binary for your OS from GitHub
+Releases. Go is only required when you build from source (`_run.sh` / `_run.bat`)
+or build the standalone config editor (`tools/edit-config.sh` / `.bat`).
+
+</details>
+
+<details>
+<summary>Do I have to log in in the terminal on first run?</summary>
+
+That is the device-code flow — it prints a code to activate at
+`twitch.tv/activate` and only needs to be done once; the token is then saved to
+a cookie and reused. On headless servers (Docker, Fly.io, VPS) set
+`TWITCH_AUTH_TOKEN_<USERNAME>` instead — see [Authentication](#18-authentication).
+
+</details>
+
+<details>
+<summary>What are `configs/guliveer_.yaml` and `guliveer_2.yaml`?</summary>
+
+Those are the repo owner's own account configs. They are **skipped by default**
+and will not run on your machine unless you set `RUN_OWNER_ACCOUNTS=true`. You
+can leave them or delete them.
+
+</details>
+
+<details>
+<summary>How do I add another account?</summary>
+
+Create a file named `configs/<your_twitch_username>.yaml`. **The filename (minus
+extension) *is* the username** — no `username` field needed. The file watcher
+picks up the new file and starts the miner automatically; no restart required.
+
+</details>
+
+<details>
+<summary>I edited my YAML and nothing happened.</summary>
+
+Hot-reload is on by default. Make sure you actually saved the file — the log
+shows `config changed, restarting miner` on change. If the config is **invalid**
+or the account is **disabled** (`enabled: false`), the change is skipped or the
+miner is stopped with a message in the log.
+
+</details>
+
+<details>
+<summary>How do I disable an account without deleting its config?</summary>
+
+Set `enabled: false` in that account's YAML. The watcher stops the miner and it
+won't restart; keep the file for later.
+
+</details>
+
+<details>
+<summary>How do I open the editor without the terminal?</summary>
+
+While the miner is running in file mode, the editor is always at
+**http://localhost:8070** (localhost only; not started in DB mode). Or right-click
+the **system tray icon** → *Config Editor* (hidden in DB mode). A standalone
+editor also exists: `tools/edit-config.sh` / `.bat` (web on `:3000`, or `--tui`).
+
+</details>
+
+<details>
+<summary>Why don't I see the tray icon?</summary>
+
+Several causes: running as a Windows service (session 0 has no desktop), running
+headless/in a container (Docker, Fly.io), an explicit `-no-tray` / `NO_TRAY=true`,
+or — on macOS — a binary built without cgo (release binaries build on a macOS
+runner, so this is automatic). See [Config Editor](#152-config-editor).
+
+</details>
+
+<details>
+<summary>Can I change the editor port?</summary>
+
+Yes — pass `-config-editor-port <port>` (default `8070`). The tray links use the
+same port automatically. There is no environment variable for it.
+
+</details>
+
+<details>
+<summary>What is `.instance_id` and why don't I see it in the folder?</summary>
+
+It is an anonymous telemetry instance ID. The file is created **hidden and
+read-only** (on Unix the leading dot hides it; on Windows the *Hidden* attribute
+is set), so it is easy to miss in a file browser. It lives in `DATA_DIR`
+(defaults to `.`). Leave it alone if you want a stable ID across restarts. This
+fork only creates it once telemetry is opted in with `TELEMETRY_AGREE=true`.
+
+</details>
+
+<details>
+<summary>Does the program send my data anywhere?</summary>
+
+Not unless you opt in: this fork ships telemetry disabled. With
+`TELEMETRY_AGREE=true` it sends an anonymous heartbeat — instance ID, version, OS,
+architecture, and the number of running accounts — no usernames, channel names,
+IPs, or tokens. Source is public. See [Environment Variables](#16-environment-variables).
+
+</details>
+
+<details>
+<summary>Why do I lose my configs/accounts after a Docker restart?</summary>
+
+Your configs (`/configs`) and data (`/data`) are volumes. Cookies, state and the
+instance ID must live on a **persistent volume** (`-v miner_data:/data`), or they
+vanish on rebuild. See [Docker](#19-docker) and the
+[wiki FAQ](https://github.com/Guliveer/twitch-miner-go/wiki/FAQ) for details.
+
+</details>
+
+<details>
+<summary>Why does it peak at ~80 MB RAM when the Python miner needs >250 MB?</summary>
+
+Go is compiled and memory-efficient; the miner runs on a handful of OS threads
+instead of dozens. See the [comparison table](#13-resource-comparison).
+
+</details>
+
+## 1.17. Advanced Guide
+
+Everything you need to go beyond the FAQ — how the strategies, connection limits,
+background loops, recovery and storage actually work under the hood. The full,
+code-accurate deep-dive lives in the
+[project wiki: Advanced Guide](https://github.com/Guliveer/twitch-miner-go/wiki/Advanced-Guide).
+
+<details>
+<summary>How do prediction strategies like SMART, HIGH_ODDS and MOST_VOTED decide?</summary>
+
+`MOST_VOTED` bets the outcome with the most voters, `HIGH_ODDS` the highest
+odds, `PERCENTAGE` the highest odds percentage, and `SMART_MONEY` the highest
+"top predictor" points. `SMART` (the default) is a hybrid — it picks high odds
+only when the field is close, otherwise it plays the crowd. An unknown strategy
+string falls back to `SMART`.
+
+</details>
+
+<details>
+<summary>What do `delay` and `delay_mode` actually control?</summary>
+
+The bet waits `delay` seconds before being placed, and `delay_mode` decides what
+is measured from: `FROM_START` (N seconds after the window starts),
+`FROM_END` (N seconds before it ends, default), or `PERCENTAGE` (delay as a
+fraction of the window duration).
+
+</details>
+
+<details>
+<summary>Can I filter which predictions I bet on?</summary>
+
+Yes — `bet` accepts filter conditions that target an outcome field (e.g.
+`outcomePercentage`, `totalVotes`) with a comparison operator and threshold.
+Predictions that fail the filter are skipped (`BET_FILTERS`).
+
+</details>
+
+<details>
+<summary>How does the miner "watch" a stream?</summary>
+
+It does not play video. It sends minute-watched events on a fixed cadence
+(20 s). Each tick it selects up to `max_watch_streams` streamers (applying your
+`priority` list) and sends the watch event for each — so the watch credit keeps
+flowing while branches run concurrently.
+
+</details>
+
+<details>
+<summary>How often are streamers checked for being online?</summary>
+
+A monitor loop checks each streamer on a randomised 20–60 s interval (jittered
+to avoid hammering Twitch's API on a fixed cadence).
+
+</details>
+
+<details>
+<summary>How often are drops synced and what happens each sync?</summary>
+
+Every 10 minutes the miner claims everything claimable from inventory first,
+then pulls the drop dashboard, keeps only in-window campaigns with unclaimed
+drops, cross-references inventory for progress, and pre-populates campaign IDs
+for streamers with drops enabled.
+
+</details>
+
+<details>
+<summary>What are vanished, synthetic, and duplicate drops?</summary>
+
+A **vanished** drop is missing from inventory across 3 polls — it is flagged so
+claims are not retried against a transient API glitch. A **synthetic** drop is
+one a campaign advertises but never lands in inventory — it is marked so the
+miner stops treating it as claimable. **Duplicate** definitions across campaigns
+are deduped; Twitch marks the rest claimed server-side.
+
+</details>
+
+<details>
+<summary>Why do some drops fail with "PRECONDITIONS_NOT_MET"?</summary>
+
+The drop needs an external account link first (e.g. a game account connected to
+Twitch). It is not a bug — claim it after linking, and the miner logs a clear
+hint.
+
+</details>
+
+<details>
+<summary>How many streams can I watch before connections split?</summary>
+
+Each PubSub WebSocket holds up to 50 topics; the pool opens more connections up
+to a maximum of 10. With two topics per streamer (channel-points +
+video-playback), a single connection covers ~25 streamers and the pool handles
+far more.
+
+</details>
+
+<details>
+<summary>What keeps PubSub alive and resurrects it?</summary>
+
+A PING is sent every 4 minutes; missing a PONG for 5+ minutes tears the dead
+connection down. A server `RECONNECT` closes and reopens it. Duplicate
+messages (identical identifier + timestamp) are dropped on reconnect. On
+`ERR_BADAUTH` the connection refreshes its token and re-subscribes.
+
+</details>
+
+<details>
+<summary>What happens in detail when a miner crashes?</summary>
+
+The manager restarts it with exponential backoff — 10 s, 20 s, 40 s … capped at
+5 minutes — and dispatches `MINER_CRASHED`. A clean stop (config disabled)
+unwinds without restarting; `ErrSkippedUnauth` also gives up (no point retrying
+headless).
+
+</details>
+
+<details>
+<summary>Why does editing config restart only that account?</summary>
+
+The file watcher mtime-compares each YAML and calls `RestartChanged(username)`,
+stopping only the changed account's miner and starting it fresh — other accounts
+keep running.
+
+</details>
+
+<details>
+<summary>How is my cookie/token stored, and can it be encrypted?</summary>
+
+Tokens are stored in a cookie file reused on later starts, plaintext by default.
+Set `COOKIE_ENCRYPTION_KEY` (Base64 32-byte AES-256 key) to encrypt at rest with
+AES-256-GCM; existing cookies migrate on the first save. Losing the key loses
+access to the cookies.
+
+</details>
+
+<details>
+<summary>What is the difference between file mode and DB mode?</summary>
+
+File mode watches YAML files for changes. DB mode (`DB_ENABLED=true`) stores
+configs in PostgreSQL, reacting via `LISTEN/NOTIFY` plus a 30 s fallback ticker,
+and exposes the REST `/api/accounts` endpoints (these return `501` in file
+mode).
+
+</details>
+
+<details>
+<summary>Why is the analytics port separate from the config editor port?</summary>
+
+`-port` (default 8080) serves the analytics dashboard — optionally behind your
+own HTTP basic auth. `-config-editor-port` (default 8070) serves the embedded
+editor, bound to `localhost` only, never exposed to the network.
+
+</details>
+
+---
+
+The hand-held explanations live in the
+[wiki](https://github.com/Guliveer/twitch-miner-go/wiki). For the internal
+package map and data flow, see
+[Architecture](https://github.com/Guliveer/twitch-miner-go/wiki/Architecture).

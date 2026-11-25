@@ -105,12 +105,17 @@ type Logger struct {
 	*slog.Logger
 	cfg      Config
 	notifyFn atomic.Value // stores NotifyFunc
+	file     *os.File    // log file when LogDir is set, nil otherwise
 }
 
 // Setup creates a new Logger based on the provided configuration.
 // It sets up console and optional file handlers.
 func Setup(cfg Config) (*Logger, error) {
 	var handlers []slog.Handler
+	var (
+		logFile *os.File
+		err     error
+	)
 
 	var consoleHandler slog.Handler
 	if cfg.Format == "json" {
@@ -134,7 +139,7 @@ func Setup(cfg Config) (*Logger, error) {
 			filename = timestamp + "_" + cfg.AccountName + ".log"
 		}
 
-		logFile, err := os.OpenFile(
+		logFile, err = os.OpenFile(
 			filepath.Join(cfg.LogDir, filename),
 			os.O_CREATE|os.O_WRONLY|os.O_APPEND,
 			0o644,
@@ -166,6 +171,7 @@ func Setup(cfg Config) (*Logger, error) {
 	logger := &Logger{
 		Logger: slog.New(handler),
 		cfg:    cfg,
+		file:   logFile,
 	}
 
 	if cfg.NotifyFn != nil {
@@ -181,6 +187,16 @@ func (l *Logger) WithAccount(name string) *Logger {
 	newCfg.AccountName = name
 	newLogger, _ := Setup(newCfg)
 	return newLogger
+}
+
+// Close releases the underlying log file, if any. Safe to call multiple times.
+func (l *Logger) Close() error {
+	if l.file != nil {
+		err := l.file.Close()
+		l.file = nil
+		return err
+	}
+	return nil
 }
 
 // Event logs a message at INFO level and dispatches a notification if configured.

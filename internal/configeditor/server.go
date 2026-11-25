@@ -1,16 +1,22 @@
 package configeditor
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/Guliveer/twitch-miner-go/internal/config"
+	"github.com/Guliveer/twitch-miner-go/internal/constants"
+	"github.com/Guliveer/twitch-miner-go/internal/utils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,39 +31,9 @@ var secretFields = map[string][]string{
 	"gotify":   {"url", "token"},
 }
 
-// schema is the static validation schema returned to the frontend.
-var schema = map[string]any{
-	"strategies": []string{
-		"MOST_VOTED", "HIGH_ODDS", "PERCENTAGE", "SMART_MONEY", "SMART",
-		"NUMBER_1", "NUMBER_2", "NUMBER_3", "NUMBER_4",
-		"NUMBER_5", "NUMBER_6", "NUMBER_7", "NUMBER_8",
-	},
-	"chat_modes":      []string{"ALWAYS", "NEVER", "ONLINE", "OFFLINE"},
-	"priorities":      []string{"STREAK", "DROPS", "ORDER", "SUBSCRIBED", "POINTS_ASCENDING", "POINTS_DESCENDING"},
-	"followers_order": []string{"ASC", "DESC"},
-	"delay_modes":     []string{"FROM_START", "FROM_END", "PERCENTAGE"},
-	"filter_where":    []string{"GT", "LT", "GTE", "LTE"},
-	"filter_by":       []string{"total_users", "total_points"},
-	"webhook_methods": []string{"GET", "POST"},
-	"notification_events": []string{
-		"STREAMER_ONLINE", "STREAMER_OFFLINE",
-		"GAIN_FOR_RAID", "GAIN_FOR_CLAIM", "GAIN_FOR_WATCH", "GAIN_FOR_WATCH_STREAK",
-		"BET_WIN", "BET_LOSE", "BET_REFUND", "BET_FILTERS", "BET_GENERAL", "BET_FAILED", "BET_START",
-		"BONUS_CLAIM", "MOMENT_CLAIM", "JOIN_RAID",
-		"DROP_CLAIM", "DROP_STATUS", "DROP_MILESTONE",
-		"CHAT_MENTION", "GIFTED_SUB",
-		"MINER_STARTED", "MINER_STOPPED", "MINER_CRASHED",
-		"ACCOUNT_CONFIG_RELOADED",
-		"TEST",
-	},
-	"defaults": map[string]any{
-		"max_watch_streams":              2,
-		"priority":                       []string{"STREAK", "DROPS", "ORDER"},
-		"category_watcher_poll_interval": "120s",
-		"team_watcher_poll_interval":     "120s",
-		"followers_order":                "ASC",
-	},
-}
+// schema is the validation schema returned to the frontend, built once at
+// startup from the model constants so it can never drift from the bot.
+var schema = config.BuildSchemaPayload()
 
 // Server handles HTTP requests for the config editor web UI.
 type Server struct {
@@ -70,6 +46,42 @@ func NewServer(configDir string) *Server {
 	s := &Server{configDir: configDir, mux: http.NewServeMux()}
 	s.registerRoutes()
 	return s
+}
+
+// Run serves the config editor on addr, blocking until ctx is cancelled and
+// the server has shut down gracefully. addr must be the full host:port, e.g.
+// "127.0.0.1:8070". It returns an error only if the server fails to start or
+// shutdown; context cancellation returns ctx.Err().
+func (s *Server) Run(ctx context.Context, addr string) error {
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           s,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      0, // config editor responses can be large; no write cap
+		IdleTimeout:       60 * time.Second,
+		BaseContext: func(_ net.Listener) context.Context {
+			return ctx
+		},
+	}
+
+	errCh := make(chan error, 1)
+	utils.SafeGo(func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+		close(errCh)
+	})
+
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), constants.DefaultGracefulShutdownTimeout)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+		return ctx.Err()
+	case err := <-errCh:
+		return err
+	}
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +97,12 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/accounts/", s.handleCORS(s.handleAccount))
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.setCORSHeaders(w)
+		w.Header().Set("Cache-Control", "no-store")
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write(indexHTML)
+			return
+		}
 		staticFS.ServeHTTP(w, r)
 	})
 }
@@ -425,9 +443,7 @@ func removeEmpty(v any) any {
 func validateConfig(cfg map[string]any) []string {
 	var errs []string
 
-	if mws, ok := cfg["max_watch_streams"].(float64); ok && mws < 0 {
-		errs = append(errs, "max_watch_streams must be non-negative (0 = unlimited)")
-	}
+	errs = append(errs, validateMaxWatchStreams(cfg)...)
 
 	hasStreamers := func() bool {
 		s, ok := cfg["streamers"].([]any)
@@ -441,13 +457,14 @@ func validateConfig(cfg map[string]any) []string {
 		tw, ok := cfg["team_watcher"].(map[string]any)
 		return ok && tw["enabled"] == true
 	}
+	hasBW := func() bool { bw, ok := cfg["badge_watcher"].(map[string]any); return ok && bw["enabled"] == true }
 	hasFollowers := func() bool {
 		f, ok := cfg["followers"].(map[string]any)
 		return ok && f["enabled"] == true
 	}
 
-	if !hasStreamers() && !hasFollowers() && !hasCW() && !hasTW() {
-		errs = append(errs, "at least one of streamers, followers, category_watcher, or team_watcher must be configured")
+	if !hasStreamers() && !hasFollowers() && !hasCW() && !hasTW() && !hasBW() {
+		errs = append(errs, "at least one of streamers, followers, category_watcher, team_watcher, or badge_watcher must be configured")
 	}
 
 	if streamers, ok := cfg["streamers"].([]any); ok {
@@ -472,6 +489,7 @@ func validateConfig(cfg map[string]any) []string {
 			errs = append(errs, "team_watcher is enabled but no teams are configured")
 		}
 	}
+	errs = append(errs, validateBadgeWatcherConfig(cfg)...)
 
 	if sd, ok := cfg["streamer_defaults"].(map[string]any); ok {
 		if sd["make_predictions"] == true {
@@ -483,6 +501,7 @@ func validateConfig(cfg map[string]any) []string {
 
 	validateDuration(cfg, "category_watcher", "poll_interval", &errs)
 	validateDuration(cfg, "team_watcher", "poll_interval", &errs)
+	validateDuration(cfg, "badge_watcher", "poll_interval", &errs)
 	if notif, ok := cfg["notifications"].(map[string]any); ok {
 		if batch, ok := notif["batch"].(map[string]any); ok {
 			if v, ok := batch["interval"].(string); ok && v != "" && !isValidDuration(v) {
@@ -492,6 +511,32 @@ func validateConfig(cfg map[string]any) []string {
 	}
 
 	return errs
+}
+
+func validateMaxWatchStreams(cfg map[string]any) []string {
+	mws, ok := cfg["max_watch_streams"].(float64)
+	if ok && mws < 0 {
+		return []string{"max_watch_streams must be non-negative (0 = unlimited)"}
+	}
+	return nil
+}
+
+func validateBadgeWatcherConfig(cfg map[string]any) []string {
+	bw, ok := cfg["badge_watcher"].(map[string]any)
+	if !ok || bw["enabled"] != true {
+		return nil
+	}
+	limit, ok := bw["streamer_limit"].(float64)
+	if ok && (limit < 1 || limit > 2) {
+		return []string{"badge_watcher.streamer_limit must be between 1 and 2"}
+	}
+	priorities, _ := cfg["priority"].([]any)
+	for _, priority := range priorities {
+		if strings.EqualFold(fmt.Sprint(priority), "BADGES") {
+			return nil
+		}
+	}
+	return []string{"badge_watcher is enabled but BADGES is absent from priority"}
 }
 
 func validateDuration(cfg map[string]any, section, field string, errs *[]string) {

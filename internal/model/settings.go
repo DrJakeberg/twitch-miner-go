@@ -5,27 +5,27 @@ type Event string
 
 // All supported miner events.
 const (
-	EventStreamerOnline     Event = "STREAMER_ONLINE"
-	EventStreamerOffline    Event = "STREAMER_OFFLINE"
-	EventGainForRaid        Event = "GAIN_FOR_RAID"
-	EventGainForClaim       Event = "GAIN_FOR_CLAIM"
-	EventGainForWatch       Event = "GAIN_FOR_WATCH"
-	EventGainForWatchStreak Event = "GAIN_FOR_WATCH_STREAK"
-	EventBetWin             Event = "BET_WIN"
-	EventBetLose            Event = "BET_LOSE"
-	EventBetRefund          Event = "BET_REFUND"
-	EventBetFilters         Event = "BET_FILTERS"
-	EventBetGeneral         Event = "BET_GENERAL"
-	EventBetFailed          Event = "BET_FAILED"
-	EventBetStart           Event = "BET_START"
-	EventBonusClaim         Event = "BONUS_CLAIM"
-	EventMomentClaim        Event = "MOMENT_CLAIM"
-	EventJoinRaid           Event = "JOIN_RAID"
-	EventDropClaim              Event = "DROP_CLAIM"
-	EventDropClaimAvailable     Event = "DROP_CLAIM_AVAILABLE"
-	EventDropStatus             Event = "DROP_STATUS"
-	EventChatMention        Event = "CHAT_MENTION"
-	EventGiftedSub          Event = "GIFTED_SUB"
+	EventStreamerOnline        Event = "STREAMER_ONLINE"
+	EventStreamerOffline       Event = "STREAMER_OFFLINE"
+	EventGainForRaid           Event = "GAIN_FOR_RAID"
+	EventGainForClaim          Event = "GAIN_FOR_CLAIM"
+	EventGainForWatch          Event = "GAIN_FOR_WATCH"
+	EventGainForWatchStreak    Event = "GAIN_FOR_WATCH_STREAK"
+	EventBetWin                Event = "BET_WIN"
+	EventBetLose               Event = "BET_LOSE"
+	EventBetRefund             Event = "BET_REFUND"
+	EventBetFilters            Event = "BET_FILTERS"
+	EventBetGeneral            Event = "BET_GENERAL"
+	EventBetFailed             Event = "BET_FAILED"
+	EventBetStart              Event = "BET_START"
+	EventBonusClaim            Event = "BONUS_CLAIM"
+	EventMomentClaim           Event = "MOMENT_CLAIM"
+	EventJoinRaid              Event = "JOIN_RAID"
+	EventDropClaim             Event = "DROP_CLAIM"
+	EventDropClaimAvailable    Event = "DROP_CLAIM_AVAILABLE"
+	EventDropStatus            Event = "DROP_STATUS"
+	EventChatMention           Event = "CHAT_MENTION"
+	EventGiftedSub             Event = "GIFTED_SUB"
 	EventMinerStarted          Event = "MINER_STARTED"
 	EventMinerStopped          Event = "MINER_STOPPED"
 	EventMinerCrashed          Event = "MINER_CRASHED"
@@ -105,6 +105,10 @@ const (
 	// PriorityPreferred prioritizes the channels listed in preferred_streamers,
 	// in the order they are listed.
 	PriorityPreferred
+	// PriorityBadges prioritizes channels dynamically added for chat badge campaigns.
+	PriorityBadges
+	// PriorityUrgentRewards reserves one slot for a time-sensitive reward.
+	PriorityUrgentRewards
 )
 
 // String returns the string representation of a Priority.
@@ -128,6 +132,10 @@ func (p Priority) String() string {
 		return "LOW_AVAILABILITY_FIRST"
 	case PriorityPreferred:
 		return "PREFERRED"
+	case PriorityBadges:
+		return "BADGES"
+	case PriorityUrgentRewards:
+		return "URGENT_REWARDS"
 	default:
 		return "ORDER"
 	}
@@ -154,8 +162,29 @@ func ParsePriority(s string) Priority {
 		return PriorityLowAvailabilityFirst
 	case "PREFERRED":
 		return PriorityPreferred
+	case "BADGES":
+		return PriorityBadges
+	case "URGENT_REWARDS":
+		return PriorityUrgentRewards
 	default:
 		return PriorityOrder
+	}
+}
+
+// AllPriorities returns a slice of all defined priorities in canonical order.
+func AllPriorities() []Priority {
+	return []Priority{
+		PriorityOrder,
+		PriorityStreak,
+		PriorityDrops,
+		PrioritySubscribed,
+		PriorityPointsAscending,
+		PriorityPointsDescending,
+		PriorityEndingSoonest,
+		PriorityLowAvailabilityFirst,
+		PriorityPreferred,
+		PriorityBadges,
+		PriorityUrgentRewards,
 	}
 }
 
@@ -190,5 +219,13 @@ func ParseFollowersOrder(s string) FollowersOrder {
 		return FollowersOrderDESC
 	default:
 		return FollowersOrderASC
+	}
+}
+
+// AllFollowersOrders returns a slice of all defined followers orders in canonical order.
+func AllFollowersOrders() []FollowersOrder {
+	return []FollowersOrder{
+		FollowersOrderASC,
+		FollowersOrderDESC,
 	}
 }
