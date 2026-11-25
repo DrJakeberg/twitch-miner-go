@@ -1281,9 +1281,13 @@ hint.
 <summary>How many streams can I watch before connections split?</summary>
 
 Each PubSub WebSocket holds up to 50 topics; the pool opens more connections up
-to a maximum of 10. With two topics per streamer (channel-points +
-video-playback), a single connection covers ~25 streamers and the pool handles
-far more.
+to a maximum of 10, so an account holds at most 500 topics. Every streamer
+always holds its video-playback topic (stream up/down), and the account holds two
+user topics. The event topics (raid, predictions, moments and community goals,
+as enabled) are only subscribed while a channel is live and are kept for 10
+minutes after it goes offline, so end-of-stream raids and late prediction
+results still arrive. With every event feature enabled, 150 streamers leave room
+for 87 of them to be live at the same time.
 
 </details>
 

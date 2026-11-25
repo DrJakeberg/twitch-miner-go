@@ -58,6 +58,16 @@ type Miner struct {
 	pendingTimers   map[string]*time.Timer
 	pendingTimersMu sync.Mutex
 
+	// eventTopics holds the event topics subscribed per channel ID; see
+	// reconcileEventTopics.
+	eventTopics   map[string]*eventTopicState
+	eventTopicsMu sync.Mutex
+
+	// subscribeTopics and unsubscribeTopics change PubSub subscriptions.
+	// Swappable in tests.
+	subscribeTopics   func(ctx context.Context, topics []*model.PubSubTopic) []*model.PubSubTopic
+	unsubscribeTopics func(topics []*model.PubSubTopic) error
+
 	priorities []model.Priority
 
 	lastWatching   map[string]bool
@@ -84,6 +94,12 @@ func NewMiner(cfg *config.AccountConfig, log *logger.Logger, runtime *runtimecfg
 		priorities:        cfg.ParsedPriorities(),
 		lastWatching:      make(map[string]bool),
 		runtime:           runtime,
+	}
+	m.subscribeTopics = func(ctx context.Context, topics []*model.PubSubTopic) []*model.PubSubTopic {
+		return m.pubsub.Subscribe(ctx, topics)
+	}
+	m.unsubscribeTopics = func(topics []*model.PubSubTopic) error {
+		return m.pubsub.Unsubscribe(topics)
 	}
 
 	store, err := streakstore.Open(streakDir(), cfg.Username)
@@ -229,11 +245,11 @@ func (m *Miner) Run(ctx context.Context) error {
 	m.log.SetNotifyFunc(m.notify.NotifyFunc(m.cfg.Username))
 
 	m.pubsub = pubsub.NewPool(m.twitch.AuthProvider(), m.log, m)
+	m.eventTopicsMu.Lock()
+	m.eventTopics = make(map[string]*eventTopicState)
+	m.eventTopicsMu.Unlock()
 
-	if err := m.subscribeAllTopics(ctx); err != nil {
-		m.twitch.GQLClient().SetNormalMode()
-		return fmt.Errorf("subscribing to PubSub topics: %w", err)
-	}
+	m.subscribeAllTopics(ctx)
 
 	m.chat = chat.NewManager(m.cfg.Username, m.twitch.AuthProvider().AuthToken(), m.log)
 	m.syncInitialChatPresence()
@@ -446,6 +462,7 @@ func (m *Miner) checkAllStreamersOnline(ctx context.Context) {
 					"streamer", streamer.Username, "error", err)
 				return
 			}
+			m.syncEventTopicsToOnlineState(ctx, streamer)
 
 			streamer.Mu.RLock()
 			isOnline := streamer.IsOnline
@@ -482,7 +499,9 @@ func (m *Miner) checkAllStreamersOnline(ctx context.Context) {
 	m.syncInitialChatPresence()
 }
 
-func (m *Miner) subscribeAllTopics(ctx context.Context) error {
+// subscribeAllTopics subscribes the user topics and every channel's video
+// playback topic. Event topics follow once the online state is known.
+func (m *Miner) subscribeAllTopics(ctx context.Context) {
 	userID := m.twitch.AuthProvider().UserID()
 	streamers := m.getStreamers()
 
@@ -501,37 +520,10 @@ func (m *Miner) subscribeAllTopics(ctx context.Context) error {
 	}
 
 	for _, s := range streamers {
-		topics = append(topics, m.streamerTopics(s)...)
+		topics = append(topics, model.NewStreamerTopic(model.PubSubTopicVideoPlayback, s))
 	}
 
-	return m.pubsub.Subscribe(ctx, topics)
-}
-
-func (m *Miner) streamerTopics(s *model.Streamer) []*model.PubSubTopic {
-	s.Mu.RLock()
-	defer s.Mu.RUnlock()
-
-	var topics []*model.PubSubTopic
-
-	topics = append(topics, model.NewStreamerTopic(model.PubSubTopicVideoPlayback, s))
-
-	if s.Settings == nil {
-		return topics
-	}
-
-	if s.Settings.FollowRaid {
-		topics = append(topics, model.NewStreamerTopic(model.PubSubTopicRaid, s))
-	}
-	if s.Settings.MakePredictions {
-		topics = append(topics, model.NewStreamerTopic(model.PubSubTopicPredictions, s))
-	}
-	if s.Settings.ClaimMoments {
-		topics = append(topics, model.NewStreamerTopic(model.PubSubTopicCommunityMoments, s))
-	}
-	if s.Settings.CommunityGoalsEnabled {
-		topics = append(topics, model.NewStreamerTopic(model.PubSubTopicCommunityGoals, s))
-	}
-	return topics
+	m.subscribeTopics(ctx, topics)
 }
 
 // syncInitialChatPresence applies the configured chat presence to every

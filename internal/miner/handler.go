@@ -166,6 +166,9 @@ func (m *Miner) handleStreamUp(ctx context.Context, streamer *model.Streamer) {
 		"category", category)
 
 	m.updateChatPresence(streamer, true)
+	// IsOnline is only set by the next online check; stream-up already
+	// means live, and a raid or prediction can start right away.
+	m.syncEventTopics(ctx, streamer, true)
 }
 
 func (m *Miner) handleStreamDown(ctx context.Context, streamer *model.Streamer) {
@@ -184,6 +187,7 @@ func (m *Miner) handleStreamDown(ctx context.Context, streamer *model.Streamer) 
 	}
 
 	m.updateChatPresence(streamer, false)
+	m.syncEventTopics(ctx, streamer, false)
 }
 
 func (m *Miner) handleViewCount(ctx context.Context, msg *model.Message, streamer *model.Streamer) {
@@ -201,7 +205,9 @@ func (m *Miner) handleViewCount(ctx context.Context, msg *model.Message, streame
 		if err := m.twitch.CheckStreamerOnline(ctx, streamer); err != nil {
 			m.log.Debug("Failed to check online status on viewcount",
 				"streamer", streamer.Username, "error", err)
+			return
 		}
+		m.syncEventTopicsToOnlineState(ctx, streamer)
 	}
 }
 

@@ -2,8 +2,10 @@ package pubsub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,7 +37,19 @@ type Pool struct {
 
 	maxTopics int
 	maxConns  int
+
+	// dial opens a new connection to the PubSub server. Swappable in tests.
+	dial func(ctx context.Context, index int) (*Connection, error)
+
+	// runGroup and runCtx are set while Run is active, so connections created
+	// by a later Subscribe are started like the ones that existed before Run.
+	runGroup *errgroup.Group
+	runCtx   context.Context
 }
+
+// errPoolFull reports that a topic did not fit into the pool because every
+// connection is full and no further connection may be opened.
+var errPoolFull = errors.New("PubSub topic limit reached")
 
 // NewPool creates a new PubSub connection pool.
 func NewPool(authProvider auth.Provider, log *logger.Logger, handler MessageHandler) *Pool {
@@ -47,17 +61,25 @@ func NewPool(authProvider auth.Provider, log *logger.Logger, handler MessageHand
 		merged:    make(chan *model.Message, 64),
 		maxTopics: constants.MaxTopicsPerConn,
 		maxConns:  constants.MaxPubSubConns,
+		dial: func(ctx context.Context, index int) (*Connection, error) {
+			return NewConnection(ctx, index, authProvider, log)
+		},
 	}
 }
 
 // Subscribe distributes topics across connections, creating new connections
-// as needed. Each connection holds up to MaxTopicsPerConn topics.
-// When the connection limit is reached, remaining topics are skipped with a warning.
-func (p *Pool) Subscribe(ctx context.Context, topics []*model.PubSubTopic) error {
+// as needed. Each connection holds up to MaxTopicsPerConn topics, and topics
+// that are already subscribed on any connection are skipped.
+//
+// It returns the topics that could not be subscribed, so callers can retry
+// them later. When the connection limit is reached, the affected channels and
+// topic types are logged; other failures are logged with their cause.
+func (p *Pool) Subscribe(ctx context.Context, topics []*model.PubSubTopic) []*model.PubSubTopic {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	var dropped int
+	var failed, overflow, errored []*model.PubSubTopic
+	var firstErr error
 	for _, topic := range topics {
 		if !topic.IsUserTopic() && topic.Streamer != nil && topic.Streamer.ChannelID == "" {
 			p.log.Warn("Skipping subscription for topic with empty channel_id",
@@ -67,21 +89,64 @@ func (p *Pool) Subscribe(ctx context.Context, topics []*model.PubSubTopic) error
 			continue
 		}
 
-		if err := p.subscribeSingle(ctx, topic); err != nil {
-			dropped++
+		err := p.subscribeSingle(ctx, topic)
+		switch {
+		case err == nil:
 			continue
+		case errors.Is(err, errPoolFull):
+			overflow = append(overflow, topic)
+		default:
+			errored = append(errored, topic)
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
+		failed = append(failed, topic)
 	}
 
-	if dropped > 0 {
-		capacity := p.maxConns * p.maxTopics
-		p.log.Warn("PubSub connection limit reached, some topics were not subscribed",
-			"dropped", dropped,
+	if len(overflow) > 0 {
+		p.log.Warn("PubSub topic limit reached, some topics were not subscribed",
+			"dropped", len(overflow),
 			"subscribed", p.topicCountLocked(),
-			"max_capacity", capacity,
+			"max_capacity", p.maxConns*p.maxTopics,
+			"channels", describeTopics(overflow),
 		)
 	}
-	return nil
+	if len(errored) > 0 {
+		p.log.Warn("Failed to subscribe PubSub topics",
+			"failed", len(errored),
+			"channels", describeTopics(errored),
+			"error", firstErr,
+		)
+	}
+	return failed
+}
+
+// describeTopics lists the given topics grouped by channel, e.g.
+// "alice (raid, predictions-channel-v1), bob (raid)". User topics are grouped
+// under "user".
+func describeTopics(topics []*model.PubSubTopic) string {
+	var owners []string
+	types := make(map[string][]string)
+	for _, topic := range topics {
+		owner := "user"
+		if !topic.IsUserTopic() {
+			owner = topic.Streamer.Username
+			if owner == "" {
+				owner = topic.Streamer.ChannelID
+			}
+		}
+		if _, seen := types[owner]; !seen {
+			owners = append(owners, owner)
+		}
+		types[owner] = append(types[owner], topic.TopicType.String())
+	}
+
+	parts := make([]string, 0, len(owners))
+	for _, owner := range owners {
+		parts = append(parts, fmt.Sprintf("%s (%s)", owner, strings.Join(types[owner], ", ")))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // Unsubscribe removes topics from their respective connections.
@@ -157,15 +222,29 @@ func (p *Pool) Run(ctx context.Context) error {
 	})
 
 	p.mu.Lock()
+	p.runGroup, p.runCtx = g, ctx
 	for _, conn := range p.conns {
-		p.startForwarder(ctx, conn)
-		g.Go(func() error {
-			return p.runConnection(ctx, conn)
-		})
+		p.startConnectionLocked(conn)
 	}
 	p.mu.Unlock()
 
-	return g.Wait()
+	err := g.Wait()
+
+	p.mu.Lock()
+	p.runGroup, p.runCtx = nil, nil
+	p.mu.Unlock()
+
+	return err
+}
+
+// startConnectionLocked starts the forwarder and the run loop of a connection
+// within the active Run. Must be called with p.mu held while Run is active.
+func (p *Pool) startConnectionLocked(conn *Connection) {
+	ctx := p.runCtx
+	p.startForwarder(ctx, conn)
+	p.runGroup.Go(func() error {
+		return p.runConnection(ctx, conn)
+	})
 }
 
 // Close gracefully closes all connections in the pool.
@@ -202,7 +281,12 @@ func (p *Pool) topicCountLocked() int {
 }
 
 // subscribeSingle subscribes a single topic to an available connection,
+// opening a new connection when all existing ones are full.
 func (p *Pool) subscribeSingle(ctx context.Context, topic *model.PubSubTopic) error {
+	if p.hasTopicLocked(topic) {
+		return nil
+	}
+
 	for _, conn := range p.conns {
 		if conn.HasCapacity() {
 			return conn.Subscribe([]*model.PubSubTopic{topic})
@@ -210,19 +294,34 @@ func (p *Pool) subscribeSingle(ctx context.Context, topic *model.PubSubTopic) er
 	}
 
 	if len(p.conns) >= p.maxConns {
-		return fmt.Errorf("maximum number of PubSub connections (%d) reached", p.maxConns)
+		return errPoolFull
 	}
 
-	conn, err := NewConnection(ctx, len(p.conns), p.auth, p.log)
+	conn, err := p.dial(ctx, len(p.conns))
 	if err != nil {
 		return fmt.Errorf("creating new PubSub connection: %w", err)
 	}
 
 	p.conns = append(p.conns, conn)
+	if p.runGroup != nil {
+		p.startConnectionLocked(conn)
+	}
 	p.log.Info("Created new PubSub connection",
 		"conn", conn.index, "total_connections", len(p.conns))
 
 	return conn.Subscribe([]*model.PubSubTopic{topic})
+}
+
+func (p *Pool) hasTopicLocked(topic *model.PubSubTopic) bool {
+	topicStr := topic.String()
+	for _, conn := range p.conns {
+		for _, connTopic := range conn.Topics() {
+			if connTopic.String() == topicStr {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (p *Pool) runConnection(ctx context.Context, conn *Connection) error {
@@ -271,7 +370,7 @@ func (p *Pool) reconnect(ctx context.Context, oldConn *Connection) (*Connection,
 	// which causes the old forwarder goroutine to exit.
 	oldConn.Close()
 
-	newConn, err := NewConnection(ctx, oldConn.index, p.auth, p.log)
+	newConn, err := p.dial(ctx, oldConn.index)
 	if err != nil {
 		return nil, fmt.Errorf("dialing PubSub for reconnection: %w", err)
 	}

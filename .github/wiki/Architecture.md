@@ -176,7 +176,7 @@ miner.Run()
   ├─ auth/             — authenticate, get token, validate username
   ├─ twitch/drops      — (optional) claim drops on startup
   ├─ workerpool/       — concurrent channel ID resolution for all streamers
-  ├─ pubsub/pool       — subscribe to PubSub topics for all streamers
+  ├─ pubsub/pool       — subscribe user topics and every streamer's video-playback topic
   ├─ chat/             — connect to IRC, join channels
   ├─ watcher/          — start category/team watcher goroutines
   └─ event loop

@@ -33,7 +33,8 @@ func (m *Miner) getStreamerByChannelID(channelID string) *model.Streamer {
 	return nil
 }
 
-// addStreamer adds a new streamer to the list and subscribes to its PubSub topics.
+// addStreamer adds a new streamer to the list and subscribes to its PubSub
+// topics; event topics only if it is already known to be live.
 func (m *Miner) addStreamer(ctx context.Context, s *model.Streamer) {
 	if s.AccountUsername == "" {
 		s.AccountUsername = m.cfg.Username
@@ -42,11 +43,8 @@ func (m *Miner) addStreamer(ctx context.Context, s *model.Streamer) {
 	m.streamers = append(m.streamers, s)
 	m.streamersMu.Unlock()
 
-	topics := m.streamerTopics(s)
-	if err := m.pubsub.Subscribe(ctx, topics); err != nil {
-		m.log.Warn("Failed to subscribe to topics for new streamer",
-			"streamer", s.Username, "error", err)
-	}
+	m.subscribeTopics(ctx, []*model.PubSubTopic{model.NewStreamerTopic(model.PubSubTopicVideoPlayback, s)})
+	m.syncEventTopicsToOnlineState(ctx, s)
 
 	if !s.IsCategoryWatched && !s.IsTeamWatched {
 		m.log.Info("➕ Added",
@@ -74,6 +72,11 @@ func (m *Miner) removeStreamerWithReason(username string, reason string) {
 		m.log.Warn("Not found for removal", "streamer", username)
 		return
 	}
+
+	removed.Mu.RLock()
+	removedChannelID := removed.ChannelID
+	removed.Mu.RUnlock()
+	m.forgetEventTopics(removedChannelID)
 
 	if err := m.pubsub.UnsubscribeStreamer(removed); err != nil {
 		m.log.Warn("Failed to unsubscribe streamer topics",

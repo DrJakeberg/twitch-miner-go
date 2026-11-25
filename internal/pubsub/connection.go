@@ -44,7 +44,7 @@ type Connection struct {
 
 // NewConnection creates a new PubSub Connection and dials the Twitch PubSub server.
 func NewConnection(ctx context.Context, index int, authProvider auth.Provider, log *logger.Logger) (*Connection, error) {
-	conn, _, err := websocket.Dial(ctx, constants.PubSubURL, &websocket.DialOptions{})
+	conn, _, err := websocket.Dial(ctx, constants.PubSubURL, &websocket.DialOptions{}) //nolint:bodyclose // coder/websocket owns the handshake response body and sets it to nil on success
 	if err != nil {
 		return nil, fmt.Errorf("dialing PubSub server: %w", err)
 	}
@@ -76,9 +76,9 @@ func (c *Connection) Subscribe(topics []*model.PubSubTopic) error {
 		if c.hasTopic(topic) {
 			continue
 		}
-		c.topics = append(c.topics, topic)
 
 		if !c.isConnected {
+			c.topics = append(c.topics, topic)
 			c.pendingTopics = append(c.pendingTopics, topic)
 			continue
 		}
@@ -86,6 +86,7 @@ func (c *Connection) Subscribe(topics []*model.PubSubTopic) error {
 		if err := c.sendListen(topic); err != nil {
 			return fmt.Errorf("subscribing to topic %s: %w", topic, err)
 		}
+		c.topics = append(c.topics, topic)
 	}
 	return nil
 }
