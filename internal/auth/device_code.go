@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -272,15 +273,18 @@ func (a *Authenticator) refreshAccessToken(ctx context.Context) error {
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("sending refresh request: %w", err)
+		return fmt.Errorf("%w: sending refresh request: %w", errAuthUnavailable, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("reading refresh response: %w", err)
+		return fmt.Errorf("%w: reading refresh response: %w", errAuthUnavailable, err)
 	}
 
+	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError {
+		return fmt.Errorf("%w: refresh request returned HTTP %d", errAuthUnavailable, resp.StatusCode)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("refresh request returned HTTP %d: %s",
 			resp.StatusCode, strings.TrimSpace(string(body)))
@@ -298,10 +302,25 @@ func (a *Authenticator) refreshAccessToken(ctx context.Context) error {
 	a.authToken = tokenResp.AccessToken
 
 	if err := a.validateToken(ctx); err != nil {
+		if errors.Is(err, errAuthUnavailable) {
+			// Twitch issued these tokens moments ago and may already have
+			// revoked the refresh token they replace, so the retry needs them.
+			a.storeRefreshedTokens(tokenResp)
+		}
 		return fmt.Errorf("refreshed token validation failed: %w", err)
 	}
 
-	a.cookieJar.Set("auth-token", a.authToken)
+	a.storeRefreshedTokens(tokenResp)
+
+	a.log.Info("Successfully refreshed access token",
+		"username", a.username, "user_id", a.userID)
+
+	return nil
+}
+
+// storeRefreshedTokens persists the tokens of a successful refresh response.
+func (a *Authenticator) storeRefreshedTokens(tokenResp TokenResponse) {
+	a.cookieJar.Set("auth-token", tokenResp.AccessToken)
 	if tokenResp.RefreshToken != "" {
 		a.cookieJar.Set("refresh-token", tokenResp.RefreshToken)
 	}
@@ -313,9 +332,4 @@ func (a *Authenticator) refreshAccessToken(ctx context.Context) error {
 	} else {
 		a.log.Info("Cookies saved after token refresh", "file", a.cookieFile)
 	}
-
-	a.log.Info("Successfully refreshed access token",
-		"username", a.username, "user_id", a.userID)
-
-	return nil
 }

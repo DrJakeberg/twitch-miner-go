@@ -141,18 +141,22 @@ func (a *Authenticator) Login(ctx context.Context) error {
 					a.maybeEncryptCookieFile()
 					return nil
 				}
-				if errors.Is(err, errTransientValidation) {
+				if errors.Is(err, errAuthUnavailable) {
 					return fmt.Errorf("validating cached token: %w", err)
 				}
 				a.log.Warn("Cached token is invalid, will try refresh", "error", err)
 				a.authToken = ""
 
-				if err := a.refreshAccessToken(ctx); err == nil {
+				err = a.refreshAccessToken(ctx)
+				if err == nil {
 					a.log.Info("Successfully authenticated via token refresh",
 						"username", a.username, "user_id", a.userID)
 					return nil
 				}
-				a.log.Warn("Token refresh failed, will try other methods")
+				if errors.Is(err, errAuthUnavailable) {
+					return fmt.Errorf("refreshing token: %w", err)
+				}
+				a.log.Warn("Token refresh failed, will try other methods", "error", err)
 			}
 		}
 	}
@@ -161,7 +165,7 @@ func (a *Authenticator) Login(ctx context.Context) error {
 		a.log.Info("Using auth token from config/environment")
 		a.authToken = a.cfg.AuthToken
 		if err := a.validateToken(ctx); err != nil {
-			if errors.Is(err, errTransientValidation) {
+			if errors.Is(err, errAuthUnavailable) {
 				return fmt.Errorf("validating config auth token: %w", err)
 			}
 			a.log.Warn("Auth token from config is invalid, will try other methods", "error", err)
@@ -179,7 +183,7 @@ func (a *Authenticator) Login(ctx context.Context) error {
 		a.log.Info("Using auth token from environment variable", "env", envKey)
 		a.authToken = envToken
 		if err := a.validateToken(ctx); err != nil {
-			if errors.Is(err, errTransientValidation) {
+			if errors.Is(err, errAuthUnavailable) {
 				return fmt.Errorf("validating env auth token: %w", err)
 			}
 			a.log.Warn("Auth token from env is invalid, will try other methods", "error", err)
@@ -220,11 +224,11 @@ func (a *Authenticator) Login(ctx context.Context) error {
 // twitchValidateURL is the Twitch OAuth2 token validation endpoint.
 const twitchValidateURL = "https://id.twitch.tv/oauth2/validate"
 
-// errTransientValidation marks a token validation that reached no verdict
-// because the network, DNS or Twitch itself failed. The token may still be
-// valid, so callers must retry rather than discard it and fall back to an
-// interactive device-code login.
-var errTransientValidation = errors.New("token validation unavailable")
+// errAuthUnavailable marks a token validation or refresh that reached no
+// verdict because the network, DNS or Twitch itself failed. The credentials may
+// still be valid, so callers must retry rather than discard them and fall back
+// to an interactive device-code login.
+var errAuthUnavailable = errors.New("twitch auth unavailable")
 
 // validateToken checks if the current auth token is valid and belongs to the
 // expected user by calling the Twitch OAuth2 validate endpoint. This replaces
@@ -238,22 +242,29 @@ func (a *Authenticator) validateToken(ctx context.Context) error {
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("%w: %w", errTransientValidation, err)
+		return fmt.Errorf("%w: %w", errAuthUnavailable, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError {
-		return fmt.Errorf("%w: status %d", errTransientValidation, resp.StatusCode)
+		return fmt.Errorf("%w: status %d", errAuthUnavailable, resp.StatusCode)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("token validation failed with status %d", resp.StatusCode)
+	}
+
+	// Twitch has already accepted the token at this point, so a connection that
+	// drops mid-body says nothing about the token and must not discard it.
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("%w: reading validate response: %w", errAuthUnavailable, err)
 	}
 
 	var result struct {
 		Login  string `json:"login"`
 		UserID string `json:"user_id"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(body, &result); err != nil {
 		return fmt.Errorf("decode validate response: %w", err)
 	}
 
