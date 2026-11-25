@@ -431,7 +431,8 @@ The repository includes modular GitHub Actions workflows:
 | Workflow | Trigger | Purpose | Auto-runs |
 |----------|---------|---------|-----------|
 | **CI** ([ci.yml](.github/workflows/ci.yml)) | Push, PR | Test, lint, version bump | Always |
-| **Docker Publish** ([docker-publish.yml](.github/workflows/docker-publish.yml)) | Called by CI after a version bump; manual dispatch | Build and push to GHCR | Only when the release job bumped the version |
+| **Docker Publish** ([docker-publish.yml](.github/workflows/docker-publish.yml)) | Called by CI after a version bump; weekly schedule; manual dispatch | Build and push to GHCR | After a version bump, and every Monday as a rebuild of the latest release |
+| **govulncheck** ([govulncheck.yml](.github/workflows/govulncheck.yml)) | Push, PR, weekly schedule | Report vulnerabilities reachable from the code | Always |
 | **Fly.io Deploy** ([fly-deploy.yml](.github/workflows/fly-deploy.yml)) | Manual dispatch only | Deploy to Fly.io | Not wired up in this fork (self-hosted via Portainer) |
 
 > `docker-publish.yml` has no push-to-`main` trigger of its own. It runs as a
@@ -441,6 +442,18 @@ The repository includes modular GitHub Actions workflows:
 > pushed by `release.yml` alongside a commit marked `[skip ci]`, which suppresses
 > the run. The `:latest` tag is only moved from `main` or a `v*` tag, so a manual
 > dispatch from a feature branch pushes SHA tags but leaves `:latest` alone.
+>
+> Every Monday a scheduled run rebuilds the release named by `VERSION` from its
+> tag — not from `main`, which may hold unreleased commits — and re-publishes
+> `:latest` and the version tags. Go and base-image security fixes therefore
+> reach the image without a new release. The deployment host still has to pull
+> the new `:latest` and redeploy; nothing does that automatically.
+
+`.github/dependabot.yml` proposes weekly updates for Go modules, the Docker base
+images and GitHub Actions. Its commit prefixes pass the Conventional Commits
+check; Go module and base-image updates use `build`, so merging one releases a
+patch version. On a fork, check that Dependabot is enabled under
+*Settings → Code security*.
 
 ### Enabling Workflows
 

@@ -854,8 +854,8 @@ The compose setup mounts:
 
 This repository publishes Docker images to GHCR with GitHub Actions.
 
-- `main` pushes publish `latest` and a short SHA tag
-- version tags such as `v1.2.3` publish `1.2.3` and `1.2`
+- a version bump on `main` publishes `latest`, the version (`1.2.3`, `1.2`) and a short SHA tag
+- every Monday the latest release is rebuilt and re-published as `latest` and its version tags, picking up Go and base-image security fixes; its SHA tag keeps pointing at the original build
 
 Example image references:
 
