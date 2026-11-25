@@ -445,14 +445,19 @@ The repository includes modular GitHub Actions workflows:
 >
 > Every Monday a scheduled run rebuilds the release named by `VERSION` from its
 > tag — not from `main`, which may hold unreleased commits — and re-publishes
-> `:latest` and the version tags. Go and base-image security fixes therefore
-> reach the image without a new release. The deployment host still has to pull
-> the new `:latest` and redeploy; nothing does that automatically.
+> `:latest` and the version tags. Go patch releases and base-image fixes
+> therefore reach the image without a new release — but only within the Go minor
+> version and base image that the release's Dockerfile names. A change to the
+> Dockerfile itself takes effect once a release containing it is cut. The
+> deployment host still has to pull the new `:latest` and redeploy; nothing does
+> that automatically.
 
-`.github/dependabot.yml` proposes weekly updates for Go modules, the Docker base
-images and GitHub Actions. Its commit prefixes pass the Conventional Commits
-check; Go module and base-image updates use `build`, so merging one releases a
-patch version. On a fork, check that Dependabot is enabled under
+`.github/dependabot.yml` proposes weekly updates for Go modules, the Go builder
+image's minor version (`golang:1.27-alpine` → `1.28`) and GitHub Actions. The
+distroless runtime image carries no version tag Dependabot could move; the
+weekly rebuild refreshes it. Commit prefixes pass the Conventional Commits check;
+Go module and builder-image updates use `build`, so merging one releases a patch
+version. On a fork, check that Dependabot is enabled under
 *Settings → Code security*.
 
 ### Enabling Workflows

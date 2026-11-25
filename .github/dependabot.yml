@@ -2,7 +2,9 @@ version: 2
 
 # Commit prefixes follow the repository's Conventional Commits check, which also
 # validates pull request titles. "build" makes release.yml cut a patch release,
-# so an updated Go module or base image actually ships; "ci" does not.
+# so an updated Go module or builder image actually ships; "ci" does not.
+# The distroless runtime image has no version tag to move; the weekly rebuild in
+# docker-publish.yml refreshes it instead.
 updates:
   - package-ecosystem: gomod
     directory: /
