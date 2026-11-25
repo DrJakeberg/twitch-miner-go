@@ -76,9 +76,9 @@ func (c *Connection) Subscribe(topics []*model.PubSubTopic) error {
 		if c.hasTopic(topic) {
 			continue
 		}
-		c.topics = append(c.topics, topic)
 
 		if !c.isConnected {
+			c.topics = append(c.topics, topic)
 			c.pendingTopics = append(c.pendingTopics, topic)
 			continue
 		}
@@ -86,6 +86,7 @@ func (c *Connection) Subscribe(topics []*model.PubSubTopic) error {
 		if err := c.sendListen(topic); err != nil {
 			return fmt.Errorf("subscribing to topic %s: %w", topic, err)
 		}
+		c.topics = append(c.topics, topic)
 	}
 	return nil
 }

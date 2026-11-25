@@ -230,10 +230,7 @@ func (m *Miner) Run(ctx context.Context) error {
 
 	m.pubsub = pubsub.NewPool(m.twitch.AuthProvider(), m.log, m)
 
-	if err := m.subscribeAllTopics(ctx); err != nil {
-		m.twitch.GQLClient().SetNormalMode()
-		return fmt.Errorf("subscribing to PubSub topics: %w", err)
-	}
+	m.subscribeAllTopics(ctx)
 
 	m.chat = chat.NewManager(m.cfg.Username, m.twitch.AuthProvider().AuthToken(), m.log)
 	m.syncInitialChatPresence()
@@ -482,7 +479,9 @@ func (m *Miner) checkAllStreamersOnline(ctx context.Context) {
 	m.syncInitialChatPresence()
 }
 
-func (m *Miner) subscribeAllTopics(ctx context.Context) error {
+// subscribeAllTopics subscribes the startup topics. Topics that do not fit are
+// reported by the pool.
+func (m *Miner) subscribeAllTopics(ctx context.Context) {
 	userID := m.twitch.AuthProvider().UserID()
 	streamers := m.getStreamers()
 
@@ -504,7 +503,7 @@ func (m *Miner) subscribeAllTopics(ctx context.Context) error {
 		topics = append(topics, m.streamerTopics(s)...)
 	}
 
-	return m.pubsub.Subscribe(ctx, topics)
+	m.pubsub.Subscribe(ctx, topics)
 }
 
 func (m *Miner) streamerTopics(s *model.Streamer) []*model.PubSubTopic {
