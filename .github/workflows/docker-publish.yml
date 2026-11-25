@@ -34,6 +34,10 @@ on:
         description: "Build and scan only, skip push"
         type: boolean
         default: false
+  # Rebuild the latest release weekly so Go and base-image security fixes reach
+  # the published image even when no new version is released.
+  schedule:
+    - cron: "17 4 * * 1"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -46,18 +50,31 @@ permissions:
 
 concurrency:
   group: docker-publish-${{ github.ref }}
-  cancel-in-progress: true
+  # A scheduled rebuild must never cancel a release publish; it queues behind it
+  # and then rebuilds whichever release is current.
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 jobs:
   publish:
-    # Run on version tags, workflow_call from CI, or manual trigger.
+    # Run on version tags, workflow_call from CI, manual trigger, or schedule.
     # When called via workflow_call, github.event_name inherits the caller's
     # event (push), not 'workflow_call', so the 'push' check covers that case.
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # main can carry unreleased commits, which must not ship under the
+      # release's version number, so a scheduled run rebuilds the release tag.
+      - name: Check out the latest release
+        id: release
+        if: github.event_name == 'schedule'
+        run: |
+          tag="v$(cat VERSION)"
+          git fetch --no-tags --depth=1 origin "+refs/tags/${tag}:refs/tags/${tag}"
+          git checkout --quiet "${tag}"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       # QEMU is only needed for cross-architecture builds; the image is amd64
       # only, so it is intentionally not set up here.
@@ -74,7 +91,7 @@ jobs:
       - name: Normalize inputs
         id: norm
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "schedule" ]; then
             echo "dry_run=false" >> "$GITHUB_OUTPUT"
           else
             echo "dry_run=${{ inputs.dry-run }}" >> "$GITHUB_OUTPUT"
@@ -101,10 +118,14 @@ jobs:
             # Never move :latest from a feature branch — the deployment host
             # pulls it, so a manual dispatch would ship unreviewed code.
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-            type=sha,format=short
+            # github.sha is main's head on a scheduled run, not the rebuilt release;
+            # the release's sha tag keeps pointing at its original build.
+            type=sha,format=short,enable=${{ github.event_name != 'schedule' }}
             type=ref,event=tag
             type=semver,pattern={{version}},value=${{ steps.build_version.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.build_version.outputs.version }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.release.outputs.commit || github.sha }}
 
       - name: Build and push Docker image
         id: build
@@ -119,6 +140,9 @@ jobs:
           # Re-add linux/arm64 here (and the QEMU setup step above) if the image
           # ever needs to run on ARM.
           platforms: linux/amd64
+          # Resolve the base images afresh so a rebuild picks up their updates
+          # instead of reusing cached layers from an older digest.
+          pull: true
           provenance: true
           sbom: true
           annotations: |
@@ -127,7 +151,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.build_version.outputs.version }}
-            GIT_COMMIT=${{ github.sha }}
+            GIT_COMMIT=${{ steps.release.outputs.commit || github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
