@@ -134,13 +134,17 @@ func (a *Authenticator) Login(ctx context.Context) error {
 			token := a.cookieJar.Get("auth-token")
 			if token != "" {
 				a.authToken = token
-				if err := a.validateToken(ctx); err == nil {
+				err := a.validateToken(ctx)
+				if err == nil {
 					a.log.Info("Successfully authenticated from cookies",
 						"username", a.username, "user_id", a.userID)
 					a.maybeEncryptCookieFile()
 					return nil
 				}
-				a.log.Warn("Cached token is invalid, will try refresh")
+				if errors.Is(err, errTransientValidation) {
+					return fmt.Errorf("validating cached token: %w", err)
+				}
+				a.log.Warn("Cached token is invalid, will try refresh", "error", err)
 				a.authToken = ""
 
 				if err := a.refreshAccessToken(ctx); err == nil {
@@ -157,6 +161,9 @@ func (a *Authenticator) Login(ctx context.Context) error {
 		a.log.Info("Using auth token from config/environment")
 		a.authToken = a.cfg.AuthToken
 		if err := a.validateToken(ctx); err != nil {
+			if errors.Is(err, errTransientValidation) {
+				return fmt.Errorf("validating config auth token: %w", err)
+			}
 			a.log.Warn("Auth token from config is invalid, will try other methods", "error", err)
 			a.authToken = ""
 		} else {
@@ -172,6 +179,9 @@ func (a *Authenticator) Login(ctx context.Context) error {
 		a.log.Info("Using auth token from environment variable", "env", envKey)
 		a.authToken = envToken
 		if err := a.validateToken(ctx); err != nil {
+			if errors.Is(err, errTransientValidation) {
+				return fmt.Errorf("validating env auth token: %w", err)
+			}
 			a.log.Warn("Auth token from env is invalid, will try other methods", "error", err)
 			a.authToken = ""
 		} else {
@@ -210,6 +220,12 @@ func (a *Authenticator) Login(ctx context.Context) error {
 // twitchValidateURL is the Twitch OAuth2 token validation endpoint.
 const twitchValidateURL = "https://id.twitch.tv/oauth2/validate"
 
+// errTransientValidation marks a token validation that reached no verdict
+// because the network, DNS or Twitch itself failed. The token may still be
+// valid, so callers must retry rather than discard it and fall back to an
+// interactive device-code login.
+var errTransientValidation = errors.New("token validation unavailable")
+
 // validateToken checks if the current auth token is valid and belongs to the
 // expected user by calling the Twitch OAuth2 validate endpoint. This replaces
 // the previous GQL-based approach because the OAuth2 endpoint both validates
@@ -222,10 +238,13 @@ func (a *Authenticator) validateToken(ctx context.Context) error {
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("validate token: %w", err)
+		return fmt.Errorf("%w: %w", errTransientValidation, err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError {
+		return fmt.Errorf("%w: status %d", errTransientValidation, resp.StatusCode)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("token validation failed with status %d", resp.StatusCode)
 	}
