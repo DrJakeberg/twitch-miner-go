@@ -2,6 +2,8 @@ module github.com/Guliveer/twitch-miner-go
 
 go 1.25.7
 
+toolchain go1.27.4
+
 require (
 	fyne.io/systray v1.12.2
 	github.com/charmbracelet/huh v1.0.0
